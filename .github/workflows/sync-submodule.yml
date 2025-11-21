@@ -36,7 +36,7 @@ jobs:
 
           cd spider
           git config core.sparseCheckout true
-          echo "dist/" > ../.git/info/sparse-checkout
+          echo "dist/" > ../.git/modules/spider/info/sparse-checkout
           git checkout main
 
       - name: Commit Submodule Changes
