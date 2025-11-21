@@ -55,9 +55,6 @@ class ChannelChecker:
         if url_info.url.endswith(".mp4"):
             return self._check_mp4_validity(url_info.url)
 
-        if ".m3u8" not in url_info.url:
-            return False
-
         if check_sub_m3u8:
             # 第一阶段：基础验证
             m3u8_content = self._check_m3u8_url(url_info)
