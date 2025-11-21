@@ -1,0 +1,17 @@
+[Unit]
+Description=TVBox Service
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/tvbox.pid
+ExecStart=/home/app/tvbox/backend/service.sh start
+ExecStop=/home/app/tvbox/backend/service.sh stop
+ExecStatus=/home/app/tvbox/backend/service.sh status
+WorkingDirectory=/home/app/tvbox/backend
+Restart=always
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

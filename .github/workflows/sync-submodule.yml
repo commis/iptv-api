@@ -1,0 +1,52 @@
+name: Sync Submodule
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  repository_dispatch:
+    types: [update_submodule]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  sync-submodule:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Main Project
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PRIVATE_REPO_TOKEN }}
+          submodules: false
+
+      - name: Configure Git for Private Repos
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.PRIVATE_REPO_TOKEN }}@github.com" > ~/.git-credentials
+
+      - name: Add Submodule & Sparse Checkout
+        run: |
+          cd ${{ github.workspace }}
+          git submodule init
+          git submodule update
+
+          cd spider
+          git config core.sparseCheckout true
+          echo "dist/" > ../.git/info/sparse-checkout
+          git checkout main
+
+      - name: Commit Submodule Changes
+        run: |
+          cd ${{ github.workspace }}  
+          if git diff --quiet --exit-code; then
+            echo "Submodule is already up to date. No changes to commit."
+            exit 0
+          fi
+
+          git add .gitmodules spider
+          git commit -m "Auto sync submodule: CatVodSpider (dist/ only)"
+          git push origin main
