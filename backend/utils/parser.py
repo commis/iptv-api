@@ -23,24 +23,26 @@ class Parser:
 
         for line in text_data.splitlines():
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
-            if line.endswith('#genre#'):
-                category = Constants.CATEGORY_CLEAN_PATTERN.sub(' ', line[:-7]).strip()
+            if line.endswith("#genre#"):
+                category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line[:-7]).strip()
                 category_stack = Const.get_category(category) if category else None
                 continue
 
             if category_stack:
-                parts = line.split(',', 1)
+                parts = line.split(",", 1)
                 if len(parts) != 2:
                     continue
                 channel_name, url = [p.strip() for p in parts]
                 if not url:
                     continue
 
-                category_info = category_manager.get_category_object(channel_name, category_stack)
-                category_name = category_info.get('name')
+                category_info = category_manager.get_category_object(
+                    channel_name, category_stack
+                )
+                category_name = category_info.get("name")
                 if not category_manager.is_exclude(category_info, channel_name):
                     channel_list.append((category_name, channel_name, url))
 
@@ -50,8 +52,8 @@ class Parser:
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
-            soup = BeautifulSoup(response.text, 'xml')
-            for loc in soup.find_all('loc'):
+            soup = BeautifulSoup(response.text, "xml")
+            for loc in soup.find_all("loc"):
                 url = loc.text.strip()
                 if not url.endswith("iptv4.txt"):
                     continue
@@ -76,12 +78,18 @@ class Parser:
         from services import category_manager
 
         category_name = None
-        for line in (line.strip() for line in text_data.splitlines() if line.strip() and not line.startswith('#')):
-            if line.endswith('#genre#'):
+        for line in (
+            line.strip()
+            for line in text_data.splitlines()
+            if line.strip() and not line.startswith("#")
+        ):
+            if line.endswith("#genre#"):
                 category_name = None
-                parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(' ', line).strip()
+                parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
                 define_category = Const.get_category(parse_category)
-                if define_category is None or (use_ignore and category_manager.is_ignore(define_category)):
+                if define_category is None or (
+                    use_ignore and category_manager.is_ignore(define_category)
+                ):
                     continue
                 if category_manager.exists(define_category):
                     category_name = define_category
@@ -89,8 +97,10 @@ class Parser:
 
             if category_name:
                 # 解析频道信息
+                if line.startswith("#"):
+                    continue
                 try:
-                    subgenre, url = line.split(',', 1)
+                    subgenre, url = line.split(",", 1)
                     subgenre, url = subgenre.strip(), url.strip()
                     channel_name = Const.get_channel(subgenre)
                     if url:
@@ -104,30 +114,36 @@ class Parser:
             response.raise_for_status()
             m3u_data = response.text.strip()
 
-            tvg_id = ''
-            tvg_logo = ''
-            group_title = ''
+            tvg_id = ""
+            tvg_logo = ""
+            group_title = ""
             channel_name = None
-            for line in (line.strip() for line in m3u_data.splitlines() if line.strip()):
-                if line.startswith('#EXTM3U'):
+            for line in (
+                line.strip() for line in m3u_data.splitlines() if line.strip()
+            ):
+                if line.startswith("#EXTM3U"):
                     continue
 
-                if line.startswith('#EXTINF:'):
+                if line.startswith("#EXTINF:"):
                     tag_content = line[8:].strip()
                     params, name = LiveConverter.parse_extinf_params(tag_content)
                     channel_name = Const.get_channel(name)
-                    tvg_id = Const.get_channel(params.get('id', ''))
-                    tvg_logo = params.get('logo', '')
-                    group_title = params.get('title', '')
+                    tvg_id = Const.get_channel(params.get("id", ""))
+                    tvg_logo = params.get("logo", "")
+                    group_title = params.get("title", "")
 
-                elif line.startswith(('http:', 'https:')):
+                elif line.startswith(("http:", "https:")):
                     define_category = Const.get_category(group_title)
-                    if (define_category is None
-                            or (category_manager.is_ignore(define_category))
-                            or not category_manager.exists(define_category)):
+                    if (
+                        define_category is None
+                        or (category_manager.is_ignore(define_category))
+                        or not category_manager.exists(define_category)
+                    ):
                         continue
                     tvg_new_logo = channel_manager.epg.get_logo(tvg_logo)
-                    channel_manager.add_channel(define_category, channel_name, line, tvg_id, tvg_new_logo)
+                    channel_manager.add_channel(
+                        define_category, channel_name, line, tvg_id, tvg_new_logo
+                    )
 
             # 处理自建频道
             cls.load_remote_url_txt(cls._live_url)
