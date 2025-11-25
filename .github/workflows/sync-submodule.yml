@@ -50,5 +50,5 @@ jobs:
           fi
 
           git add .gitmodules spider
-          git commit -m "Auto sync submodule: CatVodSpider (dist/ only)"
+          git commit -m "Auto sync submodule: spider (dist/ only)"
           git push origin main
