@@ -52,7 +52,7 @@ class CategoryManager:
             },
             "超清": {
                 "channels": [],
-                "excludes": ["河北4K", "苏州4K"],
+                "excludes": [],
             },
             "地方": {
                 "channels": ["北京文艺", "北京新闻", "北京影视", "江苏财富天下"],
