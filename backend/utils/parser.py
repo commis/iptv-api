@@ -97,8 +97,6 @@ class Parser:
 
             if category_name:
                 # 解析频道信息
-                if line.startswith("#"):
-                    continue
                 try:
                     subgenre, url = line.split(",", 1)
                     subgenre, url = subgenre.strip(), url.strip()
