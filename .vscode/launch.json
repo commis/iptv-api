@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "iptv-api",
+      "type": "debugpy",
+      "request": "launch",
+      "stopOnEntry": false,
+      "program": "${file}",
+      "cwd": "${workspaceRoot}",
+      "env": {},
+      "envFile": "${workspaceRoot}/.env",
+      "redirectOutput": true,
+    }
+  ]
+}
