@@ -44,12 +44,12 @@ jobs:
       - name: Commit Submodule Changes
         run: |
           cd ${{ github.workspace }}
-          cp dist/json/e.xml ./e.xml
           if git diff --quiet --exit-code; then
             echo "Submodule is already up to date. No changes to commit."
             exit 0
           fi
 
+          cp spider/dist/json/e.xml ./e.xml
           git add spider e.xml
           git commit -m "Auto sync submodule: spider (dist/ only)"
           git push origin main
