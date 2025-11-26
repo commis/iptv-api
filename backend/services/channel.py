@@ -5,14 +5,18 @@ from typing import Dict
 from core.singleton import singleton
 from models.channel_info import ChannelList, ChannelInfo
 from services import category_manager
+from services.const import Const
 
 
 class EpgBaseModel:
 
-    def __init__(self, file: str, source: str, domain: str = None):
+    def __init__(
+        self, file: str, source: str, domain: str = None, is_chid: bool = False
+    ):
         self._file = file
         self._source = source
-        self._domain = None if domain is None or domain == '' else domain
+        self._domain = None if domain is None or domain == "" else domain
+        self._is_chid = is_chid
 
     @property
     def file(self):
@@ -21,6 +25,10 @@ class EpgBaseModel:
     @property
     def source(self):
         return self._source
+
+    @property
+    def is_chid(self):
+        return self._is_chid
 
     def get_logo(self, source_logo: str) -> str:
         if self._domain is None:
@@ -44,8 +52,10 @@ class ChannelBaseModel:
     def epg(self):
         return self._epg
 
-    def set_epg(self, file: str, source: str, domain: str = None):
-        self._epg = EpgBaseModel(file, source, domain)
+    def set_epg(
+        self, file: str, source: str, domain: str = None, is_chid: bool = False
+    ):
+        self._epg = EpgBaseModel(file, source, domain, is_chid)
 
     def clear(self):
         self._epg = None
@@ -60,7 +70,7 @@ class ChannelBaseModel:
             self._channelGroups = dict(
                 sorted(
                     self._channelGroups.items(),
-                    key=lambda item: index_map.get(item[0], default_index)
+                    key=lambda item: index_map.get(item[0], default_index),
                 )
             )
 
@@ -73,12 +83,17 @@ class ChannelBaseModel:
                 if not category_manager.is_ignore(group_name)
             )
 
-    def add_channel(self, name: str, channel_name, channel_url, id: str = '', logo=None):
+    def add_channel(
+        self, name: str, channel_name, channel_url, id: str = "", logo=None
+    ):
         with self._lock:
             # 自动分类处理
             category_info = category_manager.get_category_object(channel_name, name)
             if category_info:
-                category_name = category_info.get('name', name)
+                if self._epg and self._epg.is_chid:
+                    id = Const.get_channel_id(id)
+
+                category_name = category_info.get("name", name)
                 if category_name not in self._channelGroups:
                     self._channelGroups[category_name] = ChannelList()
                 channel_list = self._channelGroups[category_name]

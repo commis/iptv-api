@@ -1,4 +1,4 @@
-category_map = {
+CATEGORY_MAP = {
     "央视频道": "央视",
     "卫视频道": "卫视",
     "超清频道": "超清",
@@ -12,7 +12,28 @@ category_map = {
     "其他频道": "其他",
 }
 
-channel_map = {
+CHANNEL_ID_MAP = {
+    "CCTV1综合": "CCTV1",
+    "CCTV2财经": "CCTV2",
+    "CCTV3综艺": "CCTV3",
+    "CCTV4中文国际": "CCTV4",
+    "CCTV5体育": "CCTV5",
+    "CCTV5+体育赛事": "CCTV5+",
+    "CCTV6电影": "CCTV6",
+    "CCTV7国防军事": "CCTV7",
+    "CCTV8电视剧": "CCTV8",
+    "CCTV9纪录": "CCTV9",
+    "CCTV10科教": "CCTV10",
+    "CCTV11戏曲": "CCTV11",
+    "CCTV12社会与法": "CCTV12",
+    "CCTV13新闻": "CCTV13",
+    "CCTV14少儿": "CCTV14",
+    "CCTV15音乐": "CCTV15",
+    "CCTV16奥林匹克": "CCTV16",
+    "CCTV17农业农村": "CCTV17",
+}
+
+CHANNEL_MAP = {
     "CCTV1": "CCTV1综合",
     "CCTV2": "CCTV2财经",
     "CCTV3": "CCTV3综艺",
@@ -61,9 +82,13 @@ class Const:
 
     @staticmethod
     def get_category(category_name: str) -> str:
-        return category_map.get(category_name, category_name)
+        return CATEGORY_MAP.get(category_name, category_name)
 
     @staticmethod
     def get_channel(channel_name: str) -> str:
         channel_name = channel_name.replace("频道", "")
-        return channel_map.get(channel_name, channel_name)
+        return CHANNEL_MAP.get(channel_name, channel_name)
+
+    @staticmethod
+    def get_channel_id(channel_id: str) -> str:
+        return CHANNEL_ID_MAP.get(channel_id, channel_id)

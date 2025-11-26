@@ -24,10 +24,11 @@ logger = LoggerFactory.get_logger(__name__)
 
 class SingleCheckRequest(BaseModel):
     """单个频道检查请求模型"""
+
     url: str = Field(..., description="频道URL")
     rule: str = Field(default="/{i}/", description="解析规则，必须包含{i}占位符")
 
-    @field_validator('url')
+    @field_validator("url")
     def valid_url(cls, value):
         """验证URL格式是否有效"""
         try:
@@ -38,22 +39,23 @@ class SingleCheckRequest(BaseModel):
         except ValueError as e:
             raise ValueError(f"URL验证失败: {str(e)}")
 
-    @field_validator('rule')
+    @field_validator("rule")
     def rule_contains_placeholder(cls, value):
         """验证规则中是否包含{i}占位符"""
-        if '{i}' not in value:
+        if "{i}" not in value:
             raise ValueError("规则必须包含{i}占位符")
         return value
 
     def extract_id(self, url: str) -> str:
         """从URL中提取频道ID，若未找到则返回1"""
-        pattern = re.escape(self.rule).replace('\\{i\\}', '(\\d+)')
+        pattern = re.escape(self.rule).replace("\\{i\\}", "(\\d+)")
         match = re.search(pattern, url)
-        return match.group(1) if match else 'index'
+        return match.group(1) if match else "index"
 
 
 class BatchCheckRequest(BaseModel):
     """批量频道检查请求模型"""
+
     url: str = Field(..., description="包含{i}占位符的基础URL")
     start: int = Field(1, ge=1, description="起始频道ID")
     size: int = Field(10, ge=1, le=1000, description="检查数量上限1000")
@@ -65,24 +67,30 @@ class EpgRequest(BaseModel):
     file: Optional[str] = Field(default=None, description="直播源回放信息文件")
     source: Optional[str] = Field(default=None, description="EPG源名称")
     domain: Optional[str] = Field(default=None, description="LOGO文件域名")
+    is_chid: Optional[bool] = Field(default=False, description="是否替换Channel ID")
 
 
 class UpdateLiveRequest(BaseModel):
     """更新直播源请求"""
-    output: str = Field(default="/usr/share/nginx/tvbox/result.txt", description="直播源输出文件名")
+
+    output: str = Field(
+        default="/usr/share/nginx/tvbox/result.txt", description="直播源输出文件名"
+    )
     url: Optional[str] = Field(default=None, description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
     thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
-    low_limit: Optional[int] = Field(5, ge=5, le=300, description="自动更新频道数量下限")
+    low_limit: Optional[int] = Field(
+        5, ge=5, le=300, description="自动更新频道数量下限"
+    )
 
 
 class ChannelQuery(BaseModel):
     speed: int
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def check_speed(cls, values):
-        if not values.speed or values.speed.strip() == '':
+        if not values.speed or values.speed.strip() == "":
             raise ValueError("任务ID不能为空")
         return values
 
@@ -96,7 +104,9 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
         channel_info.add_url(url_info)
 
         checker = ChannelChecker(request.url)
-        check_result = checker.check_single_with_timeout(channel_info, url_info, check_sub_m3u8=True)
+        check_result = checker.check_single_with_timeout(
+            channel_info, url_info, check_sub_m3u8=True
+        )
         if not check_result:
             return Response(content="", media_type="text/plain")
 
@@ -111,7 +121,9 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
 
 
 @router.post("/batch", summary="批量检查频道", response_model=TaskResponse)
-def check_batch_channels(request: BatchCheckRequest, background_tasks: BackgroundTasks) -> TaskResponse:
+def check_batch_channels(
+    request: BatchCheckRequest, background_tasks: BackgroundTasks
+) -> TaskResponse:
     """异步批量检查多个电视频道"""
     try:
         if request.is_clear:
@@ -122,7 +134,7 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
             url=request.url,
             total=request.size,
             type="batch_channel_check",
-            description=f"从ID {request.start} 开始检查 {request.size} 个频道"
+            description=f"从ID {request.start} 开始检查 {request.size} 个频道",
         )
 
         def run_batch_check_task() -> None:
@@ -132,13 +144,17 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
                 task = task_manager.get_task(task_id)
 
                 checker = ChannelChecker(request.url, request.start, request.size)
-                success_count = checker.check_batch(threads=request.thread_size, task_status=task, check_sub_m3u8=True)
+                success_count = checker.check_batch(
+                    threads=request.thread_size, task_status=task, check_sub_m3u8=True
+                )
 
                 success_ids = channel_manager.channel_ids()
-                task.update({
-                    "status": "completed",
-                    "result": {"success": success_count, "channels": success_ids}
-                })
+                task.update(
+                    {
+                        "status": "completed",
+                        "result": {"success": success_count, "channels": success_ids},
+                    }
+                )
             except Exception as re:
                 logger.error(f"batch check failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
@@ -153,7 +169,9 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
 
 
 @router.post("/update/txt", summary="自动从txt更新直播源", response_model=TaskResponse)
-def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
+def update_txt_sources(
+    request: UpdateLiveRequest, background_tasks: BackgroundTasks
+) -> TaskResponse:
     """
     自动更新直播源数据
     """
@@ -164,28 +182,34 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
 
         # 填充默认值
         if request.url is None:
-            request.url = "https://gh-proxy.com/github.com/vbskycn/iptv/blob/master/tv/iptv4.txt"
+            request.url = (
+                "https://gh-proxy.com/github.com/vbskycn/iptv/blob/master/tv/iptv4.txt"
+            )
         if request.epg is None:
             request.epg = EpgRequest(
                 file="http://epg.51zmt.top:8000/e.xml",
                 source="?ch={name}&date={date}",
-                domain=""
+                domain="",
             )
 
-        channel_manager.set_epg(file=request.epg.file, source=request.epg.source, domain=request.epg.domain)
+        channel_manager.set_epg(
+            file=request.epg.file, source=request.epg.source, domain=request.epg.domain
+        )
 
         parser = Parser()
         parser.load_remote_url_txt(request.url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
-            handle_exception(f"live sources count is too low: {total_count} (less than {request.low_limit})")
+            handle_exception(
+                f"live sources count is too low: {total_count} (less than {request.low_limit})"
+            )
 
         task_id = task_manager.create_task(
             url=request.url,
             total=total_count,
             type="update_live_sources",
-            description=f"output: {request.output}"
+            description=f"output: {request.output}",
         )
 
         def run_update_live_task() -> None:
@@ -199,14 +223,15 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                     threads=request.thread_size,
                     task_status=task,
                     check_m3u8_invalid=False,
-                    output_file=request.output
+                    output_file=request.output,
                 )
-                task.update({
-                    "status": "completed",
-                    "result": {"success": success_count}
-                })
+                task.update(
+                    {"status": "completed", "result": {"success": success_count}}
+                )
             except Exception as re:
-                logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
+                logger.error(
+                    f"update live sources task failed: {str(re)}", exc_info=True
+                )
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_update_live_task)
@@ -219,7 +244,9 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
 
 
 @router.post("/update/m3u", summary="自动从m3u更新直播源", response_model=TaskResponse)
-def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
+def update_m3u_sources(
+    request: UpdateLiveRequest, background_tasks: BackgroundTasks
+) -> TaskResponse:
     """
     自动更新直播源数据
     """
@@ -235,23 +262,30 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             request.epg = EpgRequest(
                 file="https://develop202.github.io/migu_video/playback.xml",
                 source="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
-                domain=""
+                domain="",
             )
 
-        channel_manager.set_epg(file=request.epg.file, source=request.epg.source, domain=request.epg.domain)
+        channel_manager.set_epg(
+            file=request.epg.file,
+            source=request.epg.source,
+            domain=request.epg.domain,
+            is_chid=request.epg.is_chid,
+        )
 
         parser = Parser()
         parser.load_remote_url_m3u(request.url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
-            handle_exception(f"live sources count is too low: {total_count} (less than {request.low_limit})")
+            handle_exception(
+                f"live sources count is too low: {total_count} (less than {request.low_limit})"
+            )
 
         task_id = task_manager.create_task(
             url=request.url,
             total=total_count,
             type="update_live_sources",
-            description=f"output: {request.output}"
+            description=f"output: {request.output}",
         )
 
         def run_update_live_task() -> None:
@@ -265,14 +299,15 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                     threads=request.thread_size,
                     task_status=task,
                     check_m3u8_invalid=False,
-                    output_file=request.output
+                    output_file=request.output,
                 )
-                task.update({
-                    "status": "completed",
-                    "result": {"success": success_count}
-                })
+                task.update(
+                    {"status": "completed", "result": {"success": success_count}}
+                )
             except Exception as re:
-                logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
+                logger.error(
+                    f"update live sources task failed: {str(re)}", exc_info=True
+                )
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_update_live_task)
@@ -308,7 +343,13 @@ def get_channels_m3u():
 
 @router.post("/cvt/txt", summary="TXT格式转换为M3U格式", response_model=str)
 def convert_txt_to_m3u(
-        txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待转换的TXT格式直播源数据")):
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待转换的TXT格式直播源数据",
+    )
+):
     """
     将TXT格式的直播源数据转换为M3U格式
     """
@@ -322,13 +363,21 @@ def convert_txt_to_m3u(
 
 @router.post("/cvt/m3u", summary="M3U格式转换为TXT格式", response_model=str)
 def convert_m3u_to_txt(
-        m3u_data: str = Body(..., media_type="text/plain", min_length=1, description="待转换的M3U格式直播源数据")):
+    m3u_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待转换的M3U格式直播源数据",
+    )
+):
     """
     将M3U格式的直播源数据转换为TXT格式
     """
     try:
         if not m3u_data.strip():
-            handle_exception("invalidate input: empty text", status.HTTP_400_BAD_REQUEST)
+            handle_exception(
+                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
+            )
 
         converter = LiveConverter()
         result = converter.m3u_to_txt(m3u_data)
@@ -339,14 +388,22 @@ def convert_m3u_to_txt(
 
 @router.post("/mgr/txt", summary="合并TXT格式直播源并选择最优", response_model=str)
 def merge_live_sources(
-        txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待合并的TXT格式直播源数据"),
-        top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)")):
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待合并的TXT格式直播源数据",
+    ),
+    top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)"),
+):
     """
     合并TXT格式的直播源数据并选择最优的前N个
     """
     try:
         if not txt_data.strip():
-            handle_exception("invalidate input: empty text", status.HTTP_400_BAD_REQUEST)
+            handle_exception(
+                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
+            )
 
         live_data = Parser.get_channel_data(txt_data)
         merger = LiveMerger(live_data)
@@ -361,16 +418,24 @@ def merge_live_sources(
 
 @router.post("/chr/txt", summary="检测TXT格式直播源有效性", response_model=TaskResponse)
 def check_live_sources(
-        background_tasks: BackgroundTasks,
-        txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待合并的TXT格式直播源数据"),
-        is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
-        thread_size: Optional[int] = Query(20, ge=2, le=64, description="并发线程数上限64")):
+    background_tasks: BackgroundTasks,
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待合并的TXT格式直播源数据",
+    ),
+    is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
+    thread_size: Optional[int] = Query(20, ge=2, le=64, description="并发线程数上限64"),
+):
     """
     检测TXT格式直播源有效性
     """
     try:
         if not txt_data:
-            handle_exception("invalidate input: empty text", status.HTTP_400_BAD_REQUEST)
+            handle_exception(
+                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
+            )
 
         if is_clear:
             channel_manager.clear()
@@ -385,7 +450,7 @@ def check_live_sources(
             url="",
             total=total_count,
             type="update_live_sources",
-            description=f"检查TXT直播源有效性"
+            description=f"检查TXT直播源有效性",
         )
 
         def run_check_live_task() -> None:
@@ -395,15 +460,16 @@ def check_live_sources(
                 task = task_manager.get_task(task_id)
 
                 checker = ChannelChecker()
-                success_count = checker.update_batch_live(threads=thread_size,
-                                                          task_status=task,
-                                                          check_m3u8_invalid=True)
-                task.update({
-                    "status": "completed",
-                    "result": {"success": success_count}
-                })
+                success_count = checker.update_batch_live(
+                    threads=thread_size, task_status=task, check_m3u8_invalid=True
+                )
+                task.update(
+                    {"status": "completed", "result": {"success": success_count}}
+                )
             except Exception as re:
-                logger.error(f"check live sources task failed: {str(re)}", exc_info=True)
+                logger.error(
+                    f"check live sources task failed: {str(re)}", exc_info=True
+                )
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_check_live_task)
