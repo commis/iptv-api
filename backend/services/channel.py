@@ -27,6 +27,10 @@ class EpgBaseModel:
         return self._source
 
     @property
+    def domain(self):
+        return self._domain
+
+    @property
     def is_chid(self):
         return self._is_chid
 
@@ -35,7 +39,9 @@ class EpgBaseModel:
             return source_logo
 
         filename = os.path.basename(source_logo)
-        return f"{self._domain}/{filename}"
+        if self.is_chid:
+            return filename.replace('.png', '.webp')
+        return f"{filename}"
 
 
 class ChannelBaseModel:
@@ -143,7 +149,7 @@ class ChannelBaseModel:
         with self._lock:
             result = [self._get_extm3u_header()]
             for group_name, channel_list in self._channelGroups.items():
-                result.append(channel_list.get_m3u(group_name))
+                result.append(channel_list.get_m3u(group_name, self._epg.domain))
             return "\n".join(result).strip()
 
     def to_txt_string(self) -> str:
@@ -166,7 +172,7 @@ class ChannelBaseModel:
         with self._lock:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
-                file_handle.write(channel_list.get_m3u(group_name))
+                file_handle.write(channel_list.get_m3u(group_name, self._epg.domain))
                 file_handle.write("\n")
 
 

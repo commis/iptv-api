@@ -24,6 +24,7 @@ logger = LoggerFactory.get_logger(__name__)
 
 class TimeoutException(Exception):
     """自定义超时异常"""
+
     pass
 
 
@@ -34,24 +35,34 @@ class ChannelChecker:
         self._size = size
 
     @log_execution_time(name=ref("channel_info.name"), url=ref("url_info.url"))
-    def check_single_with_timeout(self, channel_info: ChannelInfo, url_info: ChannelUrl,
-                                  check_sub_m3u8, timeout=60) -> bool:
+    def check_single_with_timeout(
+        self,
+        channel_info: ChannelInfo,
+        url_info: ChannelUrl,
+        check_sub_m3u8,
+        timeout=60,
+    ) -> bool:
         """带超时控制的频道检测方法"""
         logger.debug(f"Checking {channel_info.name} with {url_info.url}")
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self._check_single, channel_info, url_info, check_sub_m3u8)
+            future = executor.submit(
+                self._check_single, channel_info, url_info, check_sub_m3u8
+            )
             try:
                 return future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
                 # 超时发生时，future会被自动取消
                 logger.warning(
-                    f"Check for {channel_info.name} with {url_info.url} timed out after {timeout} seconds")
+                    f"Check for {channel_info.name} with {url_info.url} timed out after {timeout} seconds"
+                )
                 return False
             except Exception as e:
                 logger.error(f"check_single error: {e}")
                 return False
 
-    def _check_single(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_sub_m3u8) -> bool:
+    def _check_single(
+        self, channel_info: ChannelInfo, url_info: ChannelUrl, check_sub_m3u8
+    ) -> bool:
         if url_info.url.endswith(".mp4"):
             return self._check_mp4_validity(url_info.url)
 
@@ -64,15 +75,21 @@ class ChannelChecker:
             # 第二阶段：结构验证
             is_valid, reason = self._check_m3u8_validity(m3u8_content)
             if not is_valid:
-                logger.debug(f"M3U8 structure invalid for {channel_info.name} with {url_info.url}: {reason}")
+                logger.debug(
+                    f"M3U8 structure invalid for {channel_info.name} with {url_info.url}: {reason}"
+                )
                 return False
 
             # 第三阶段：TS验证
-            base_url = url_info.url.rsplit('/', 1)[0]
+            base_url = url_info.url.rsplit("/", 1)[0]
             ts_urls = self._extract_ts_urls(m3u8_content)
-            ts_valid, ts_reason, tested_urls = self._check_ts_availability(ts_urls, base_url)
+            ts_valid, ts_reason, tested_urls = self._check_ts_availability(
+                ts_urls, base_url
+            )
             if not ts_valid:
-                logger.debug(f"TS segments invalid for {channel_info.name} with {url_info.url}: {ts_reason}")
+                logger.debug(
+                    f"TS segments invalid for {channel_info.name} with {url_info.url}: {ts_reason}"
+                )
                 return False
 
             # 第四阶段：测速
@@ -80,7 +97,9 @@ class ChannelChecker:
 
             # 第五阶段：元数据提取
             if not channel_info.name:
-                channel_info.set_name(self._extract_channel_name(m3u8_content, url_info.url))
+                channel_info.set_name(
+                    self._extract_channel_name(m3u8_content, url_info.url)
+                )
 
         return True
 
@@ -89,11 +108,11 @@ class ChannelChecker:
         try:
             response = requests.head(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
-            content_type = response.headers.get('Content-Type')
-            if content_type and 'video/mp4' not in content_type.lower():
+            content_type = response.headers.get("Content-Type")
+            if content_type and "video/mp4" not in content_type.lower():
                 return False
 
-            content_length = response.headers.get('Content-Length')
+            content_length = response.headers.get("Content-Length")
             if content_length and int(content_length) < 1024:
                 return False
 
@@ -103,7 +122,7 @@ class ChannelChecker:
             chunk = partial_response.raw.read(8)
             partial_response.close()
             # MP4 文件以 0x00000018 或 0x00000020 开头，后跟 "ftyp" 字符串
-            if b'\x00\x00\x00\x18ftyp' in chunk or b'\x00\x00\x00\x20ftyp' in chunk:
+            if b"\x00\x00\x00\x18ftyp" in chunk or b"\x00\x00\x00\x20ftyp" in chunk:
                 return True
             return False
         except:
@@ -116,13 +135,15 @@ class ChannelChecker:
             response.raise_for_status()
             content = response.text
 
-            if '#EXT-X-STREAM-INF' in content:
+            if "#EXT-X-STREAM-INF" in content:
                 # 使用正则表达式提取所有流信息和路径
-                for match in re.finditer(r'#EXT-X-STREAM-INF:.*?\n(.+)', content):
+                for match in re.finditer(r"#EXT-X-STREAM-INF:.*?\n(.+)", content):
                     child_m3u8 = match.group(1).strip()
-                    url_info.set_url(child_m3u8
-                                     if child_m3u8.startswith('http')
-                                     else urljoin(url_info.url, child_m3u8))
+                    url_info.set_url(
+                        child_m3u8
+                        if child_m3u8.startswith("http")
+                        else urljoin(url_info.url, child_m3u8)
+                    )
                     child_content = self._check_m3u8_url(url_info)
                     if child_content:
                         content = child_content
@@ -157,9 +178,18 @@ class ChannelChecker:
             tested_urls = []
 
             for ts in ts_urls[:max_test_count]:
-                full_url = ts if ts.startswith('http') else urljoin(
-                    base_url if base_url.endswith('/') else base_url + '/', ts)
-                futures.append(executor.submit(self._validate_ts, full_url, timeout=Constants.REQUEST_TIMEOUT))
+                full_url = (
+                    ts
+                    if ts.startswith("http")
+                    else urljoin(
+                        base_url if base_url.endswith("/") else base_url + "/", ts
+                    )
+                )
+                futures.append(
+                    executor.submit(
+                        self._validate_ts, full_url, timeout=Constants.REQUEST_TIMEOUT
+                    )
+                )
 
             # 带超时的结果处理
             for future in as_completed(futures):
@@ -173,13 +203,19 @@ class ChannelChecker:
 
         if success.get_value() == 0:
             return False, "all ts segments are not available", []
-        return True, f"{success.get_value()}/{max_test_count} segments are available.", tested_urls
+        return (
+            True,
+            f"{success.get_value()}/{max_test_count} segments are available.",
+            tested_urls,
+        )
 
     def _validate_ts(self, url, timeout) -> Tuple[str, bool]:
         """带超时的TS片段验证"""
         try:
             # 只获取头部信息，减少数据传输
-            response = requests.head(url, timeout=(1, timeout - 1), allow_redirects=True)
+            response = requests.head(
+                url, timeout=(1, timeout - 1), allow_redirects=True
+            )
             response.raise_for_status()
             return url, response.status_code == 200
         except Exception as e:
@@ -225,7 +261,9 @@ class ChannelChecker:
                 return channel_name
 
             # 方案2: 从Content-Disposition头提取 - 增加超时控制
-            channel_name = self._extract_from_content_disposition(request_url, timeout=2)
+            channel_name = self._extract_from_content_disposition(
+                request_url, timeout=2
+            )
             if channel_name:
                 return channel_name
 
@@ -248,18 +286,18 @@ class ChannelChecker:
         3. 无有效名称时返回None
         """
         extinf_pattern = re.compile(
-            r'^#EXTINF:\s*'
-            r'(?P<duration>-?\d+\.?\d*)\s*'  # 捕获时长
+            r"^#EXTINF:\s*"
+            r"(?P<duration>-?\d+\.?\d*)\s*"  # 捕获时长
             r'(?:tvg-name=(?P<qt1>[\'"]?)(?P<tvg_name>[^\'",#]+?)(?P=qt1)\s*)?'  # 修复括号
-            r'(?:,?\s*(?P<display_name>[^#]+?))?'  # 显示名称
-            r'\s*(?:#.*)?$',  # 注释部分
-            re.IGNORECASE | re.MULTILINE
+            r"(?:,?\s*(?P<display_name>[^#]+?))?"  # 显示名称
+            r"\s*(?:#.*)?$",  # 注释部分
+            re.IGNORECASE | re.MULTILINE,
         )
-        remove_chars = str.maketrans('', '', ',.，。')
+        remove_chars = str.maketrans("", "", ",.，。")
 
         candidates = []
         for line in m3u8_content.splitlines():
-            if not line.startswith('#EXTINF'):
+            if not line.startswith("#EXTINF"):
                 continue
 
             match = extinf_pattern.match(line)
@@ -268,14 +306,14 @@ class ChannelChecker:
 
             groups = match.groupdict()
             # 优先级1：tvg-name（带/不带引号）
-            if groups['tvg_name']:
-                clean_name = groups['tvg_name'].strip('\'"')
+            if groups["tvg_name"]:
+                clean_name = groups["tvg_name"].strip("'\"")
                 if clean_name:
                     return clean_name
 
             # 优先级2：显示名称（需清洗）
-            if groups['display_name']:
-                display = groups['display_name'].strip()
+            if groups["display_name"]:
+                display = groups["display_name"].strip()
                 # 过滤无效名称（纯数字、空值等）
                 cleaned_display = display.translate(remove_chars)
                 if cleaned_display:
@@ -290,9 +328,11 @@ class ChannelChecker:
     def _extract_from_content_disposition(self, url, timeout=2):
         """带超时的Content-Disposition提取"""
         try:
-            response = requests.head(url, timeout=(1, timeout - 1), allow_redirects=True)
-            if 'content-disposition' in response.headers:
-                cd_header = response.headers['content-disposition']
+            response = requests.head(
+                url, timeout=(1, timeout - 1), allow_redirects=True
+            )
+            if "content-disposition" in response.headers:
+                cd_header = response.headers["content-disposition"]
                 filename_match = re.findall("filename=(.+)", cd_header)
                 if filename_match:
                     filename = filename_match[0].strip('";')
@@ -321,9 +361,14 @@ class ChannelChecker:
         def check_task(args):
             tmp_channel_info, url_info, process_sub_m3u8 = args
             try:
-                return (self.check_single_with_timeout(channel_info=tmp_channel_info,
-                                                       url_info=url_info,
-                                                       check_sub_m3u8=process_sub_m3u8), tmp_channel_info)
+                return (
+                    self.check_single_with_timeout(
+                        channel_info=tmp_channel_info,
+                        url_info=url_info,
+                        check_sub_m3u8=process_sub_m3u8,
+                    ),
+                    tmp_channel_info,
+                )
             except TimeoutException as te:
                 logger.warning(f"Timeout checking {url_info.url}: {te}")
                 return False, None
@@ -332,10 +377,14 @@ class ChannelChecker:
                 return False, None
 
         # 使用生成器和并行处理
-        optimal_threads = min(threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1)
+        optimal_threads = min(
+            threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1
+        )
         with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
             # 使用chunksize提高I/O密集型任务效率
-            results = executor.map(check_task, task_generator(), chunksize=max(1, total_count // 10))
+            results = executor.map(
+                check_task, task_generator(), chunksize=max(1, total_count // 10)
+            )
             for result, channel_info in results:
                 if result and channel_info:
                     channel_manager.add_channel_info(None, channel_info)
@@ -343,17 +392,23 @@ class ChannelChecker:
 
                 with task_status_lock:
                     processed_count.increment()
-                    task_status.update({
-                        "progress": round(processed_count.get_value() / total_count * 100, 2),
-                        "processed": processed_count.get_value(),
-                        "success": success_count.get_value(),
-                        "updated_at": int(time.time()),
-                    })
+                    task_status.update(
+                        {
+                            "progress": round(
+                                processed_count.get_value() / total_count * 100, 2
+                            ),
+                            "processed": processed_count.get_value(),
+                            "success": success_count.get_value(),
+                            "updated_at": int(time.time()),
+                        }
+                    )
 
         channel_manager.sort()
         return success_count.get_value()
 
-    def update_batch_live(self, threads, task_status, check_m3u8_invalid, output_file=None) -> int:
+    def update_batch_live(
+        self, threads, task_status, check_m3u8_invalid, output_file=None
+    ) -> int:
         """批量更新直播频道信息"""
         task_status_lock = threading.Lock()
         success_counter = Counter()
@@ -362,7 +417,9 @@ class ChannelChecker:
 
         def process_url(task):
             channel_info, url_info, process_m3u8_invalid = task
-            check_result = self.check_single_with_timeout(channel_info, url_info, process_m3u8_invalid)
+            check_result = self.check_single_with_timeout(
+                channel_info, url_info, process_m3u8_invalid
+            )
             try:
                 if check_result:
                     success_counter.increment()
@@ -372,20 +429,28 @@ class ChannelChecker:
                 with task_status_lock:
                     processed_counter.increment()
                     processed = processed_counter.get_value()
-                    task_status.update({
-                        "progress": round(processed / total_count * 100, 2),
-                        "processed": processed,
-                        "success": success_counter.get_value(),
-                        "updated_at": int(time.time()),
-                    })
+                    task_status.update(
+                        {
+                            "progress": round(processed / total_count * 100, 2),
+                            "processed": processed,
+                            "success": success_counter.get_value(),
+                            "updated_at": int(time.time()),
+                        }
+                    )
 
         # 生成任务并立即处理
-        optimal_threads = min(threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1)
+        optimal_threads = min(
+            threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1
+        )
         with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
+
             def task_generator():
                 actual_count = 0
                 # 部分分类组忽略不予处理
-                for group_name in filter(lambda g: not category_manager.is_ignore(g), channel_manager.get_groups()):
+                for group_name in filter(
+                    lambda g: not category_manager.is_ignore(g),
+                    channel_manager.get_groups(),
+                ):
                     chanmel_list = channel_manager.get_channel_list(group_name)
                     channel_name_list = chanmel_list.get_channel_names()
                     for channel_name in channel_name_list:
@@ -397,7 +462,9 @@ class ChannelChecker:
                 # 验证实际任务数
                 nonlocal total_count
                 if actual_count != total_count:
-                    logger.warning(f"Actual task count ({actual_count}) differs from expected total ({total_count})")
+                    logger.warning(
+                        f"Actual task count ({actual_count}) differs from expected total ({total_count})"
+                    )
                     total_count = actual_count
                     task_status["total"] = total_count
                 return actual_count
@@ -413,7 +480,9 @@ class ChannelChecker:
         # 最终状态验证
         final_processed = processed_counter.get_value()
         final_success = success_counter.get_value()
-        logger.info(f"Final status: Total={total_count}, Processed={final_processed}, Success={final_success}")
+        logger.info(
+            f"Final status: Total={total_count}, Processed={final_processed}, Success={final_success}"
+        )
 
         self._write_data_to_txt_file(output_file)
         self._write_data_to_m3u_file(output_file)
@@ -428,7 +497,7 @@ class ChannelChecker:
             os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
             # 写入数据
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 # 添加时间戳
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"# 频道数据导出时间: {timestamp}\n")
@@ -447,13 +516,13 @@ class ChannelChecker:
         if not file_path:
             return
 
-        new_file_path = replace_file_extension(file_path, '.m3u')
+        new_file_path = replace_file_extension(file_path, ".m3u")
         try:
             # 确保目录存在
             os.makedirs(os.path.dirname(new_file_path), exist_ok=True)
 
             # 写入数据
-            with open(new_file_path, 'w', encoding='utf-8') as f:
+            with open(new_file_path, "w", encoding="utf-8") as f:
                 # 添加时间戳
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 f.write(f"# 频道数据导出时间: {timestamp}\n")
