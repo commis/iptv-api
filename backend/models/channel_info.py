@@ -89,8 +89,9 @@ class ChannelInfo:
         if not title:
             title = self.title
 
+        logo_url = f"{domain}/" if domain else ""
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
-        tvg_logo = f'tvg-logo="{domain}/{self.logo}" ' if self.logo else ""
+        tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if self.logo else ""
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
