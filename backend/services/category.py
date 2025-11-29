@@ -20,7 +20,7 @@ class CategoryManager:
                 "channels": [],
                 "excludes": ["精选推荐", "熊猫直播", "直播中国", "支持作者"],
             },
-            "精品": {
+            "新影": {
                 "channels": [
                     "风云音乐",
                     "风云足球",
