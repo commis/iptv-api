@@ -40,7 +40,7 @@ class EpgBaseModel:
 
         filename = os.path.basename(source_logo)
         if self.is_chid:
-            return filename.replace('.png', '.webp')
+            return filename.replace(".png", ".webp")
         return f"{filename}"
 
 
@@ -92,8 +92,8 @@ class ChannelBaseModel:
     def add_channel(
         self, name: str, channel_name, channel_url, id: str = "", logo=None
     ):
+        # 添加频道信息，自动归类分类信息，自动过滤排除频道
         with self._lock:
-            # 自动分类处理
             category_info = category_manager.get_category_object(channel_name, name)
             if category_info:
                 if self._epg and self._epg.is_chid:

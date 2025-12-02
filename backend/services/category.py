@@ -139,7 +139,7 @@ class CategoryManager:
             "地理": {},
             "历史": {},
             "生物": {},
-            "纪录": {"channels": [], "excludes": ["*"]},
+            "纪录": {"channels": [], "excludes": []},
             "寰宇": {},
             "寻味": {},
             "人物": {},
