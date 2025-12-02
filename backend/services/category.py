@@ -132,7 +132,7 @@ class CategoryManager:
                     "广东少儿",
                     "经典动画大集合",
                 ],
-                "excludes": ["韩国EBS少儿"],
+                "excludes": ["*"],
             },
             "英语": {},
             "科学": {},
