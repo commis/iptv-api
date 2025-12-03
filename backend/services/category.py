@@ -15,12 +15,12 @@ class CategoryManager:
     def __init__(self):
         # 分类信息，channels仅为配置，内存中的数据不存在
         self._categories: Dict[str, Dict[str, object]] = {
-            "锻炼": {},
-            "央视": {
+            "体育健身": {},
+            "央视频道": {
                 "channels": [],
                 "excludes": ["精选推荐", "熊猫直播", "直播中国", "支持作者"],
             },
-            "新影": {
+            "央视新影": {
                 "channels": [
                     "风云音乐",
                     "风云足球",
@@ -38,7 +38,7 @@ class CategoryManager:
                 ],
                 "excludes": [],
             },
-            "卫视": {
+            "卫视频道": {
                 "channels": [
                     "农林卫视",
                 ],
@@ -49,15 +49,15 @@ class CategoryManager:
                     "上海卫视",
                 ],
             },
-            "超清": {
+            "超清频道": {
                 "channels": [],
                 "excludes": [],
             },
-            "地方": {
+            "地方频道": {
                 "channels": ["北京文艺", "北京新闻", "北京影视", "江苏财富天下"],
                 "excludes": ["爱上海", "现代教育"],
             },
-            "纪实": {
+            "纪实频道": {
                 "channels": [
                     "新动力量创一流",
                     "环球旅游",
@@ -71,7 +71,7 @@ class CategoryManager:
                 ],
                 "excludes": [],
             },
-            "体育": {
+            "体育频道": {
                 "channels": [
                     "五星体育",
                     "北京体育休闲",
@@ -88,12 +88,12 @@ class CategoryManager:
                 ],
                 "excludes": [],
             },
-            "综艺": {"channels": ["最强综艺趴"], "excludes": []},
-            "教育": {
+            "综艺频道": {"channels": ["最强综艺趴"], "excludes": []},
+            "教育频道": {
                 "channels": ["CETV-1", "CETV-2", "CETV-4", "山东教育"],
                 "excludes": [],
             },
-            "电影": {
+            "电影频道": {
                 "channels": [
                     "CHC电影",
                     "CHC动作电影",
@@ -120,7 +120,7 @@ class CategoryManager:
                     "倩女幽魂妖魔道",
                 ],
             },
-            "儿童": {
+            "儿童频道": {
                 "channels": [
                     "哈哈炫动",
                     "金鹰卡通",
@@ -134,22 +134,22 @@ class CategoryManager:
                 ],
                 "excludes": ["*"],
             },
-            "英语": {},
-            "科学": {},
-            "地理": {},
-            "历史": {},
+            "英语听力": {},
+            "科学探索": {},
+            "地理知识": {},
+            "了解历史": {},
             "世界历史": {},
-            "生物": {},
-            "纪录": {"channels": [], "excludes": []},
-            "寰宇": {},
-            "寻味": {},
-            "人物": {},
-            "战争": {},
-            "文化": {},
-            "其他": {"channels": ["钱塘江"]},
-            "直播": {},
-            "熊猫": {},
-            "春晚": {},
+            "生物知识": {},
+            "纪录片场": {"channels": [], "excludes": []},
+            "走遍中国": {},
+            "美食频道": {},
+            "传奇人物": {},
+            "经典战争": {},
+            "中国文化": {},
+            "其他频道": {"channels": [], "excludes": ["钱塘江"]},
+            "直播中国": {},
+            "熊猫直播": {},
+            "历届春晚": {},
         }
         self._lock = threading.RLock()
         self._ignore_categories = ["直播", "熊猫", "春晚", "港台", "海外", "全球"]
