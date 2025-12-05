@@ -1,5 +1,8 @@
+import os
 import threading
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
+
+import yaml
 
 from core.singleton import singleton
 
@@ -12,149 +15,57 @@ class CategoryManager:
 
     _channel_relations: Dict[str, Dict[str, object]] = {}
 
-    def __init__(self):
-        # 分类信息，channels仅为配置，内存中的数据不存在
-        self._categories: Dict[str, Dict[str, object]] = {
-            "体育健身": {},
-            "央视频道": {
-                "channels": [],
-                "excludes": ["精选推荐", "熊猫直播", "直播中国", "支持作者"],
-            },
-            "央视新影": {
-                "channels": [
-                    "风云音乐",
-                    "风云足球",
-                    "风云剧场",
-                    "怀旧剧场",
-                    "兵器科技",
-                    "世界地理",
-                    "央视台球",
-                    "第一剧场",
-                    "女性时尚",
-                    "电视指南",
-                    "老故事",
-                    "中学生",
-                    "发现之旅",
-                ],
-                "excludes": [],
-            },
-            "卫视频道": {
-                "channels": [
-                    "农林卫视",
-                ],
-                "excludes": [
-                    "北京体育",
-                    "金鹰纪实",
-                    "上海纪实",
-                    "上海卫视",
-                ],
-            },
-            "超清频道": {
-                "channels": [],
-                "excludes": [],
-            },
-            "地方频道": {
-                "channels": ["北京文艺", "北京新闻", "北京影视", "江苏财富天下"],
-                "excludes": ["爱上海", "现代教育"],
-            },
-            "纪实频道": {
-                "channels": [
-                    "新动力量创一流",
-                    "环球旅游",
-                    "军事评论",
-                    "农业致富",
-                    "探索发现",
-                    "地理中国",
-                    "人与自然",
-                    "自然传奇",
-                    "之江纪录",
-                ],
-                "excludes": [],
-            },
-            "体育频道": {
-                "channels": [
-                    "五星体育",
-                    "北京体育休闲",
-                    "江苏体育休闲",
-                    "陕西体育休闲",
-                    "赛事最经典",
-                    "体坛名栏汇",
-                    "四海钓鱼",
-                    "快乐垂钓",
-                    "武术世界",
-                    "天元围棋",
-                    "24小时城市联赛轮播台",
-                    "24小时全运会轮播台",
-                ],
-                "excludes": [],
-            },
-            "综艺频道": {"channels": ["最强综艺趴"], "excludes": []},
-            "教育频道": {
-                "channels": ["CETV-1", "CETV-2", "CETV-4", "山东教育"],
-                "excludes": [],
-            },
-            "电影频道": {
-                "channels": [
-                    "CHC电影",
-                    "CHC动作电影",
-                    "CHC家庭影院",
-                    "CHC影迷电影",
-                    "黑莓电影",
-                    "南方影视",
-                    "经典香港电影",
-                    "抗战经典影片",
-                    "新片放映厅",
-                    "高清大片",
-                    "东森电影",
-                    "凤凰电影",
-                    "龙华电影",
-                    "重温经典",
-                ],
-                "excludes": [
-                    "淘剧场",
-                    "淘娱乐",
-                    "韩国电影1",
-                    "韩国电影2",
-                    "倩女幽魂道道道",
-                    "倩女幽魂人间道",
-                    "倩女幽魂妖魔道",
-                ],
-            },
-            "儿童频道": {
-                "channels": [
-                    "哈哈炫动",
-                    "金鹰卡通",
-                    "嘉佳卡通",
-                    "卡酷少儿",
-                    "优漫卡通",
-                    "黑龙江少儿",
-                    "浙江少儿",
-                    "广东少儿",
-                    "经典动画大集合",
-                ],
-                "excludes": ["*"],
-            },
-            "英语听力": {},
-            "科学探索": {},
-            "地理知识": {},
-            "中国历史": {},
-            "世界历史": {},
-            "生物知识": {},
-            "纪录频道": {"channels": [], "excludes": []},
-            "走遍中国": {},
-            "中国美味": {},
-            "人物传记": {},
-            "经典战争": {},
-            "中国文化": {},
-            "其他频道": {"channels": [], "excludes": ["钱塘江"]},
-            "直播中国": {},
-            "熊猫直播": {},
-            "历届春晚": {},
-        }
+    def __init__(self, config_path: str = None):
         self._lock = threading.RLock()
-        self._ignore_categories = ["直播", "熊猫", "春晚", "港台", "海外", "全球"]
+
+        # 初始化加载配置
+        self._config_path = config_path or os.path.normpath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "..",
+                "..",
+                "spider",
+                "service.yaml",
+            )
+        )
+        full_config = self._load_config()
+        self._category_map: Dict[str, str] = full_config["category_map"]
+        self._ignore_categories: Dict[str, str] = full_config["ignore_category"]
+        self._channel_id_map: Dict[str, str] = full_config["channel_id_map"]
+        self._channel_name_map: Dict[str, str] = full_config["channel_name_map"]
+        self._categories: Dict[str, Dict[str, Any]] = full_config["channel_map"]
 
         self._init_channel_relations()
+
+    def _load_config(self) -> Dict[str, Any]:
+        """加载完整配置（仅临时使用）"""
+        if not os.path.exists(self._config_path):
+            raise FileNotFoundError(
+                f"the config is not exist, file：{self._config_path}\n"
+                f"Please check spider/service.yaml file"
+            )
+
+        try:
+            with open(self._config_path, "r", encoding="utf-8") as f:
+                config_data = yaml.safe_load(f)
+
+            # 校验核心节点
+            required = [
+                "category_map",
+                "ignore_category",
+                "channel_map",
+                "channel_id_map",
+                "channel_name_map",
+            ]
+            missing = [n for n in required if n not in config_data]
+            if missing:
+                raise ValueError(f"failed to load config：{missing}")
+
+            return config_data
+        except yaml.YAMLError as e:
+            raise RuntimeError(f"failed to parse yaml：{str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"load yaml exception：{str(e)}")
 
     def _init_channel_relations(self):
         """初始化频道名称与分类的映射关系"""
@@ -175,7 +86,7 @@ class CategoryManager:
         channels = category_info.get("channels", [])
         excludes = category_info.get("excludes", [])
         return (
-            "*" in excludes and channel_name not in channels
+                "*" in excludes and channel_name not in channels
         ) or channel_name in excludes
 
     def get_groups(self):
@@ -225,6 +136,16 @@ class CategoryManager:
         """获取所有分类图标映射的副本"""
         with self._lock:
             return self._categories.copy()
+
+    def get_category(self, category_name: str) -> str:
+        return self._category_map.get(category_name, category_name)
+
+    def get_channel(self, channel_name: str) -> str:
+        channel_name = channel_name.replace("频道", "")
+        return self._channel_name_map.get(channel_name, channel_name)
+
+    def get_channel_id(self, channel_id: str) -> str:
+        return self._channel_id_map.get(channel_id, channel_id)
 
 
 category_manager = CategoryManager()

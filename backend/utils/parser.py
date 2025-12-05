@@ -5,7 +5,6 @@ from api.tv.converter import LiveConverter
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from services import channel_manager, category_manager
-from services.const import Const
 
 logger = LoggerFactory.get_logger(__name__)
 
@@ -28,7 +27,7 @@ class Parser:
 
             if line.endswith("#genre#"):
                 category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line[:-7]).strip()
-                category_stack = Const.get_category(category) if category else None
+                category_stack = category_manager.get_category(category) if category else None
                 continue
 
             if category_stack:
@@ -86,7 +85,7 @@ class Parser:
             if line.endswith("#genre#"):
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
-                define_category = Const.get_category(parse_category)
+                define_category = category_manager.get_category(parse_category)
                 if define_category is None or (
                     use_ignore and category_manager.is_ignore(define_category)
                 ):
@@ -100,7 +99,7 @@ class Parser:
                 try:
                     subgenre, url = line.split(",", 1)
                     subgenre, url = subgenre.strip(), url.strip()
-                    channel_name = Const.get_channel(subgenre)
+                    channel_name = category_manager.get_channel(subgenre)
                     if url:
                         channel_manager.add_channel(category_name, channel_name, url)
                 except ValueError:
@@ -125,13 +124,13 @@ class Parser:
                 if line.startswith("#EXTINF:"):
                     tag_content = line[8:].strip()
                     params, name = LiveConverter.parse_extinf_params(tag_content)
-                    channel_name = Const.get_channel(name)
-                    tvg_id = Const.get_channel(params.get("id", ""))
+                    channel_name = category_manager.get_channel(name)
+                    tvg_id = category_manager.get_channel(params.get("id", ""))
                     tvg_logo = params.get("logo", "")
                     group_title = params.get("title", "")
 
                 elif line.startswith(("http:", "https:")):
-                    define_category = Const.get_category(group_title)
+                    define_category = category_manager.get_category(group_title)
                     if (
                         define_category is None
                         or (category_manager.is_ignore(define_category))

@@ -2,8 +2,8 @@ import re
 from typing import Tuple, Dict
 
 from core.logger_factory import LoggerFactory
+from services import category_manager
 from services.channel import ChannelBaseModel
-from services.const import Const
 
 logger = LoggerFactory.get_logger(__name__)
 
@@ -42,7 +42,7 @@ class LiveConverter:
             if line.startswith('#EXTINF:'):
                 tag_content = line[8:].strip()
                 params, name = LiveConverter.parse_extinf_params(tag_content)
-                channel_name = Const.get_channel(name)
+                channel_name = category_manager.get_channel(name)
                 try:
                     channel_id = params.get('id') if "id" in params else '0'
                 except ValueError:

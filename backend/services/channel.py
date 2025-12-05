@@ -5,13 +5,12 @@ from typing import Dict
 from core.singleton import singleton
 from models.channel_info import ChannelList, ChannelInfo
 from services import category_manager
-from services.const import Const
 
 
 class EpgBaseModel:
 
     def __init__(
-        self, file: str, source: str, domain: str = None, is_chid: bool = False
+            self, file: str, source: str, domain: str = None, is_chid: bool = False
     ):
         self._file = file
         self._source = source
@@ -59,7 +58,7 @@ class ChannelBaseModel:
         return self._epg
 
     def set_epg(
-        self, file: str, source: str, domain: str = None, is_chid: bool = False
+            self, file: str, source: str, domain: str = None, is_chid: bool = False
     ):
         self._epg = EpgBaseModel(file, source, domain, is_chid)
 
@@ -90,14 +89,14 @@ class ChannelBaseModel:
             )
 
     def add_channel(
-        self, name: str, channel_name, channel_url, id: str = "", logo=None
+            self, name: str, channel_name, channel_url, id: str = "", logo=None
     ):
         # 添加频道信息，自动归类分类信息，自动过滤排除频道
         with self._lock:
             category_info = category_manager.get_category_object(channel_name, name)
             if category_info:
                 if self._epg and self._epg.is_chid:
-                    id = Const.get_channel_id(id)
+                    id = category_manager.get_channel_id(id)
 
                 category_name = category_info.get("name", name)
                 if category_name not in self._channelGroups:
