@@ -17,4 +17,5 @@ git submodule update
 cd spider
 git config core.sparseCheckout true
 echo "dist/" >../.git/modules/spider/info/sparse-checkout
+echo "service.yaml" >>../.git/modules/spider/info/sparse-checkout
 git checkout main
