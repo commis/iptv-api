@@ -25,6 +25,7 @@ class CategoryManager:
                 "..",
                 "..",
                 "spider",
+                "dist",
                 "service.yaml",
             )
         )
@@ -86,7 +87,7 @@ class CategoryManager:
         channels = category_info.get("channels", [])
         excludes = category_info.get("excludes", [])
         return (
-                "*" in excludes and channel_name not in channels
+            "*" in excludes and channel_name not in channels
         ) or channel_name in excludes
 
     def get_groups(self):
