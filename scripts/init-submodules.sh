@@ -16,6 +16,8 @@ git submodule update
 # 进入子模块目录，配置稀疏检出
 cd spider
 git config core.sparseCheckout true
-echo "dist/" >../.git/modules/spider/info/sparse-checkout
-echo "service.yaml" >>../.git/modules/spider/info/sparse-checkout
+cat <<EOF >../.git/modules/spider/info/sparse-checkout
+dist/
+service.yaml
+EOF
 git checkout main
