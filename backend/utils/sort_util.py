@@ -1,130 +1,86 @@
 import re
 from typing import List, Tuple, Optional
 
-from pypinyin import pinyin, Style
 
-# 中文数字映射（覆盖航拍中国的季数排序）
-CHINESE_NUM_MAP = {'零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9, '十': 10}
+class StringSorter:
+    """字符串混合排序工具类"""
+    __CHINESE_NUM_MAP = {
+        '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
+        '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
+        '十': 10, '百': 100, '千': 1000, '万': 10000
+    }
 
+    __PURE_NUM = re.compile(r'^\d+$')
+    __PURE_EN = re.compile(r'^[a-zA-Z\+\-]*$')
+    __PURE_CN = re.compile(r'^[\u4e00-\u9fa5]+$')
+    __ONLY_SPECIAL = re.compile(r'^[!#@]+$')
+    __HAS_NUM = re.compile(r'\d')
+    __HAS_EN = re.compile(r'[a-zA-Z]')
+    __HAS_CN = re.compile(r'[\u4e00-\u9fa5]')
+    __HAS_SPECIAL = re.compile(r'[!#@]')
+    __SPLIT_PATTERN = re.compile(
+        r'([!#@]+)|(\d+)|([a-zA-Z]+)|([' + ''.join(__CHINESE_NUM_MAP.keys()) + r'])|([\u4e00-\u9fa5])|([+-]+)'
+    )
 
-def get_str_main_type(s: str) -> int:
-    """
-    最终权重规则（适配所有测试用例，重点修复test_empty_string）：
-    权重越小 → 排序越靠前
-    1. 纯数字（如123）
-    2. 纯英文（含+/-，如a+b/abc）
-    3. 符号+数字（!789/#456/@123）
-    4. 数字+中文（2024年春节）: 3
-    5. 数字+英文（A69英文）: 4
-    6. 数字+英文+中文（test8测试）: 5
-    7. 纯中文（央视新影）: 6
-    8. 其他含特殊符号: 7
-    9. 空字符串（""）: 8
-    10. 仅特殊符号（如@）: 9
-    """
-    s_stripped = s.strip()
-    # 空字符串单独处理（权重8）
-    if not s_stripped:
-        return 8
+    @classmethod
+    def __get_str_main_type(cls, s: str) -> int:
+        s_stripped = s.strip()
+        if not s_stripped:
+            return 13
 
-    # 预编译正则（Python3.7兼容）
-    special_symbol_pattern = re.compile(r'[!#@]')
-    arabic_num_pattern = re.compile(r'\d')
-    chinese_num_pattern = re.compile(r'[' + ''.join(CHINESE_NUM_MAP.keys()) + ']')
-    english_pattern = re.compile(r'[a-zA-Z]')
-    chinese_pattern = re.compile(r'[\u4e00-\u9fa5]')
-    symbol_num_only_pattern = re.compile(r'^[!#@]+\d+$')
-    only_special_symbol = re.compile(r'^[!#@]+$')
-    pure_english_pattern = re.compile(r'^[a-zA-Z\+\-]*$')
-    pure_number_pattern = re.compile(r'^\d+$')
+        hn = bool(cls.__HAS_NUM.search(s_stripped))
+        he = bool(cls.__HAS_EN.search(s_stripped))
+        hc = bool(cls.__HAS_CN.search(s_stripped))
+        hs = bool(cls.__HAS_SPECIAL.search(s_stripped))
+        pn = bool(cls.__PURE_NUM.match(s_stripped))
+        pe = bool(cls.__PURE_EN.match(s_stripped))
+        pc = bool(cls.__PURE_CN.match(s_stripped))
+        os = bool(cls.__ONLY_SPECIAL.match(s_stripped))
 
-    # 特征提取（Python3.7兼容）
-    has_special_symbol = bool(special_symbol_pattern.search(s_stripped))
-    has_arabic_num = bool(arabic_num_pattern.search(s_stripped))
-    has_chinese_num = bool(chinese_num_pattern.search(s_stripped))
-    has_english = bool(english_pattern.search(s_stripped))
-    has_chinese = bool(chinese_pattern.search(s_stripped))
-    has_num = has_arabic_num or has_chinese_num
-    is_pure_number = bool(pure_number_pattern.match(s_stripped))
-    is_pure_english = bool(pure_english_pattern.match(s_stripped))
-    is_symbol_num_only = bool(symbol_num_only_pattern.match(s_stripped))
-    is_only_special_symbol = bool(only_special_symbol.match(s_stripped))
+        weight = next((w for cond, w in [
+            (pn, 0), (hn and he and not hc and not hs, 1), (pe, 2),
+            (hn and hs and not he and not hc, 3), (he and hs and not hn and not hc, 4),
+            (hn and he and hs and not hc, 5), (pc, 6), (hn and hc and not he and not hs, 7),
+            (he and hc and not hn and not hs, 8), (hc and hs and not hn and not he, 9),
+            (hn and he and hc and not hs, 10), (hn and he and hc and hs, 11), (os, 12)
+        ] if cond), 13)
+        return weight
 
-    # 规则1：纯数字（123）→ 权重0
-    if is_pure_number:
-        return 0
-    # 规则2：纯英文（含+/-，如abc/a+b）→ 权重1
-    if is_pure_english:
-        return 1
-    # 规则3：符号+数字（!789/#456/@123）→ 权重2
-    if is_symbol_num_only:
-        return 2
-    # 规则4：数字+中文 → 权重3
-    if has_num and not has_english and has_chinese and not has_special_symbol:
-        return 3
-    # 规则5：数字+英文 → 权重4
-    if has_num and has_english and not has_chinese and not has_special_symbol:
-        return 4
-    # 规则6：数字+英文+中文 → 权重5
-    if has_num and has_english and has_chinese and not has_special_symbol:
-        return 5
-    # 规则7：纯中文 → 权重6
-    if has_chinese and not has_english and not has_num and not has_special_symbol:
-        return 6
-    # 规则8：其他含特殊符号 → 权重7
-    if has_special_symbol:
-        return 7
-    # 规则9：仅特殊符号（如@）→ 权重9
-    if is_only_special_symbol:
-        return 9
-    # 兜底 → 权重8
-    return 8
+    @classmethod
+    def __parse_chinese_num(cls, char: str) -> Optional[int]:
+        return cls.__CHINESE_NUM_MAP.get(char)
 
+    @classmethod
+    def __mixed_sort_key(cls, s: str) -> Tuple[int, Tuple, int]:
+        main_type = cls.__get_str_main_type(s)
+        s_stripped = s.strip()
+        key_parts = []
 
-def parse_chinese_num(char: str) -> Optional[int]:
-    """解析中文数字，Python3.7兼容返回Optional"""
-    return CHINESE_NUM_MAP.get(char)
+        type_rules = [
+            (lambda p: p[0] in '!#@', lambda p: ('special', p)),
+            (lambda p: p.isdigit() or p in cls.__CHINESE_NUM_MAP,
+             lambda p: ('num', int(p) if p.isdigit() else cls.__parse_chinese_num(p))),
+            (lambda p: p[0].isalpha(), lambda p: ('en', (p.lower(), p))),
+            (lambda p: cls.__HAS_CN.match(p), lambda p: ('cn', p)),
+            (lambda p: p in '+-', lambda p: ('symbol', p))
+        ]
 
+        for part in cls.__SPLIT_PATTERN.findall(s_stripped):
+            part = next(p for p in part if p)
+            if not part:
+                continue
+            for check, handle in type_rules:
+                if check(part):
+                    key_parts.append(handle(part))
+                    break
 
-def mixed_sort_key(s: str) -> Tuple[int, Tuple, int]:
-    """Python3.7兼容的排序键生成函数"""
-    main_type = get_str_main_type(s)
-    # 拆分正则：覆盖符号/数字/英文/中文/+/-
-    pattern = re.compile(r'(?:[!#@]+)|(?:\d+)|(?:[a-zA-Z]+)|(?:[\u4e00-\u9fa5]+)|(?:[+-]+)')
-    key_parts = []
-    s_stripped = s.strip()
+        str_len = len(s_stripped) if s_stripped else 0
+        return main_type, tuple(key_parts), str_len
 
-    for match in pattern.finditer(s):
-        part = match.group()
-        # 1. 特殊符号（!#@）：按ASCII码排序（! < # < @）
-        if re.match(r'[!#@]+', part):
-            key_parts.append(('s', part))
-        # 2. 阿拉伯数字：自然排序（转int）
-        elif re.match(r'\d+', part):
-            key_parts.append(('n', int(part)))
-        # 3. 英文：小写优先，原字符次之（保证aBc < apple < Banana）
-        elif re.match(r'[a-zA-Z]+', part):
-            for char in part:
-                key_parts.append(('e', (char.lower(), char)))
-        # 4. 中文：拼音小写+中文数字转数值（航拍中国排序）
-        elif re.match(r'[\u4e00-\u9fa5]+', part):
-            for char in part:
-                num_val = parse_chinese_num(char)
-                if num_val is not None:
-                    key_parts.append(('n', num_val))
-                else:
-                    pinyin_result = pinyin(char, style=Style.NORMAL, strict=True)
-                    pinyin_str = pinyin_result[0][0].lower()
-                    key_parts.append(('c', pinyin_str))
-        # 5. +/-分隔符：按ASCII码排序（+ < -）
-        elif re.match(r'[+-]+', part):
-            key_parts.append(('d', part))
+    @staticmethod
+    def get_sort_key(s: str):
+        return StringSorter.__mixed_sort_key(s)
 
-    # 字符串长度：同优先级时短的在前
-    str_length = len(s_stripped) if s_stripped else 0
-    return main_type, tuple(key_parts), str_length
-
-
-def mixed_sort(str_list: List[str]) -> List[str]:
-    """对外暴露的排序接口"""
-    return sorted(str_list, key=mixed_sort_key)
+    @staticmethod
+    def mixed_sort(str_list: List[str]) -> List[str]:
+        return sorted(str_list, key=StringSorter.__mixed_sort_key)

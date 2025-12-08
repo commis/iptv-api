@@ -1,7 +1,7 @@
 import threading
 from typing import List, Dict, Set
 
-from utils.sort_util import mixed_sort_key
+from utils.sort_util import StringSorter
 
 
 class ChannelUrl:
@@ -110,15 +110,15 @@ class ChannelInfo:
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_logo = f'tvg-logo="{self.logo}" ' if self.logo else ""
         return (
-            "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
-            + "\n"
-            + "\n".join(separator)
-            + "\n"
-            + "\n".join(
-                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
-                f"{self.name}\n{url.url}"
-                for url in sorted_urls
-            )
+                "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
+                + "\n"
+                + "\n".join(separator)
+                + "\n"
+                + "\n".join(
+            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
+            f"{self.name}\n{url.url}"
+            for url in sorted_urls
+        )
         )
 
 
@@ -169,7 +169,7 @@ class ChannelList:
         with self._lock:
             return sorted(
                 self._channels.values(),
-                key=lambda channel: mixed_sort_key(channel.name),
+                key=lambda channel: StringSorter.get_sort_key(channel.name),
             )
 
     def get_m3u(self, title="", domain=""):
