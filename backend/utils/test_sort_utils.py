@@ -65,7 +65,7 @@ class TestMixedSortKey(unittest.TestCase):
             "CCTV-1 综合"
         ]
         expected = [
-            "#999", "2024年春节", "2025年元旦", "A69英文", "B58中文", "CCTV-1 综合", "test8测试", "test10测试",
+            "2024年春节", "2025年元旦", "#999", "A69英文", "B58中文", "CCTV-1 综合", "test8测试", "test10测试",
             "央视新影-中学生"
         ]
         self.assertEqual(expected, StringSorter.mixed_sort(lst))

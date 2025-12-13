@@ -4,22 +4,36 @@ from typing import List, Tuple, Optional
 
 class StringSorter:
     """字符串混合排序工具类"""
+
     __CHINESE_NUM_MAP = {
-        '零': 0, '一': 1, '二': 2, '三': 3, '四': 4,
-        '五': 5, '六': 6, '七': 7, '八': 8, '九': 9,
-        '十': 10, '百': 100, '千': 1000, '万': 10000
+        "零": 0,
+        "一": 1,
+        "二": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+        "百": 100,
+        "千": 1000,
+        "万": 10000,
     }
 
-    __PURE_NUM = re.compile(r'^\d+$')
-    __PURE_EN = re.compile(r'^[a-zA-Z\+\-]*$')
-    __PURE_CN = re.compile(r'^[\u4e00-\u9fa5]+$')
-    __ONLY_SPECIAL = re.compile(r'^[!#@]+$')
-    __HAS_NUM = re.compile(r'\d')
-    __HAS_EN = re.compile(r'[a-zA-Z]')
-    __HAS_CN = re.compile(r'[\u4e00-\u9fa5]')
-    __HAS_SPECIAL = re.compile(r'[!#@]')
+    __PURE_NUM = re.compile(r"^\d+$")
+    __PURE_EN = re.compile(r"^[a-zA-Z\+\-]*$")
+    __PURE_CN = re.compile(r"^[\u4e00-\u9fa5]+$")
+    __ONLY_SPECIAL = re.compile(r"^[!#@]+$")
+    __HAS_NUM = re.compile(r"\d")
+    __HAS_EN = re.compile(r"[a-zA-Z]")
+    __HAS_CN = re.compile(r"[\u4e00-\u9fa5]")
+    __HAS_SPECIAL = re.compile(r"[!#@]")
     __SPLIT_PATTERN = re.compile(
-        r'([!#@]+)|(\d+)|([a-zA-Z]+)|([' + ''.join(__CHINESE_NUM_MAP.keys()) + r'])|([\u4e00-\u9fa5])|([+-]+)'
+        r"([!#@]+)|(\d+)|([a-zA-Z]+)|(["
+        + "".join(__CHINESE_NUM_MAP.keys())
+        + r"])|([\u4e00-\u9fa5])|([+-]+)|([^\d\w\u4e00-\u9fa5!#@+-]+)"
     )
 
     @classmethod
@@ -37,13 +51,28 @@ class StringSorter:
         pc = bool(cls.__PURE_CN.match(s_stripped))
         os = bool(cls.__ONLY_SPECIAL.match(s_stripped))
 
-        weight = next((w for cond, w in [
-            (pn, 0), (hn and he and not hc and not hs, 1), (pe, 2),
-            (hn and hs and not he and not hc, 3), (he and hs and not hn and not hc, 4),
-            (hn and he and hs and not hc, 5), (pc, 6), (hn and hc and not he and not hs, 7),
-            (he and hc and not hn and not hs, 8), (hc and hs and not hn and not he, 9),
-            (hn and he and hc and not hs, 10), (hn and he and hc and hs, 11), (os, 12)
-        ] if cond), 13)
+        weight = next(
+            (
+                w
+                for cond, w in [
+                (pn, 0),
+                (hn and he and not hc and not hs, 1),
+                (pe, 2),
+                (hn and hs and not he and not hc, 3),
+                (he and hs and not hn and not hc, 4),
+                (hn and he and hs and not hc, 5),
+                (pc, 6),
+                (hn and hc and not he and not hs, 7),
+                (he and hc and not hn and not hs, 8),
+                (hc and hs and not hn and not he, 9),
+                (hn and he and hc and not hs, 10),
+                (hn and he and hc and hs, 11),
+                (os, 12),
+            ]
+                if cond
+            ),
+            13,
+        )
         return weight
 
     @classmethod
@@ -51,18 +80,33 @@ class StringSorter:
         return cls.__CHINESE_NUM_MAP.get(char)
 
     @classmethod
-    def __mixed_sort_key(cls, s: str) -> Tuple[int, Tuple, int]:
-        main_type = cls.__get_str_main_type(s)
+    def __extract_start_num(cls, s: str) -> float:
         s_stripped = s.strip()
+        match = re.match(r'^\d+', s_stripped)
+        if match:
+            return int(match.group())
+        return float('inf')
+
+    @classmethod
+    def __mixed_sort_key(cls, s: str) -> Tuple[int, Tuple, int]:
+        s_stripped = s.strip()
+        start_num = cls.__extract_start_num(s_stripped)
+        main_type = cls.__get_str_main_type(s)
         key_parts = []
 
         type_rules = [
-            (lambda p: p[0] in '!#@', lambda p: ('special', p)),
-            (lambda p: p.isdigit() or p in cls.__CHINESE_NUM_MAP,
-             lambda p: ('num', int(p) if p.isdigit() else cls.__parse_chinese_num(p))),
-            (lambda p: p[0].isalpha(), lambda p: ('en', (p.lower(), p))),
-            (lambda p: cls.__HAS_CN.match(p), lambda p: ('cn', p)),
-            (lambda p: p in '+-', lambda p: ('symbol', p))
+            (lambda p: p[0] in "!#@", lambda p: ("special", p)),
+            (
+                lambda p: p.isdigit() or p in cls.__CHINESE_NUM_MAP,
+                lambda p: (
+                    "num",
+                    int(p) if p.isdigit() else cls.__parse_chinese_num(p) or 0,
+                ),
+            ),
+            (lambda p: p[0].isalpha(), lambda p: ("en", (p.lower(), p))),
+            (lambda p: cls.__HAS_CN.match(p), lambda p: ("cn", p)),
+            (lambda p: p in "+-", lambda p: ("symbol", p)),
+            (lambda p: True, lambda p: ("other", p)),
         ]
 
         for part in cls.__SPLIT_PATTERN.findall(s_stripped):
@@ -75,7 +119,8 @@ class StringSorter:
                     break
 
         str_len = len(s_stripped) if s_stripped else 0
-        return main_type, tuple(key_parts), str_len
+        # 排序优先级：开头数字 > 原有main_type > 拆分后的key_parts > 字符串长度
+        return start_num, main_type, tuple(key_parts), str_len
 
     @staticmethod
     def get_sort_key(s: str):
