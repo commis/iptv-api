@@ -85,9 +85,7 @@ class LiveMerger:
         # 生成频道数据部分
         channel_data = []
         for category, items in self._filtered_data.items():
-            category_info = category_manager.get_category_info(category)
-            icon = category_info.get("icon", "") if category_info else ""
-            category_title = f"{icon}{category},#genre#"
+            category_title = f"{category},#genre#"
             channel_data.extend([category_title, *[f"{subgenre},{url}" for subgenre, url in items], ""])
 
         # 组合输出

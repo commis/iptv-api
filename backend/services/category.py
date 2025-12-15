@@ -87,7 +87,7 @@ class CategoryManager:
         channels = category_info.get("channels", [])
         excludes = category_info.get("excludes", [])
         return (
-            "*" in excludes and channel_name not in channels
+                "*" in excludes and channel_name not in channels
         ) or channel_name in excludes
 
     def get_groups(self):
@@ -101,6 +101,16 @@ class CategoryManager:
         """
         with self._lock:
             return category in self._categories
+
+    def change_logo(self, category: str) -> bool:
+        """
+        片段是否需要替换logo路经
+        """
+        with self._lock:
+            cagegory_info = self._categories.get(category)
+            if cagegory_info:
+                return cagegory_info.get("change_logo", True)
+        return True
 
     def get_category_info(self, category_name: str) -> Optional[Dict[str, object]]:
         """

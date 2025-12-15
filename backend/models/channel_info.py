@@ -85,11 +85,11 @@ class ChannelInfo:
             for url in sorted(self.urls, key=lambda url: url.speed)
         )
 
-    def get_m3u(self, title="", domain=""):
+    def get_m3u(self, change_logo, title="", domain=""):
         if not title:
             title = self.title
 
-        logo_url = f"{domain}/" if domain else ""
+        logo_url = f"{domain}/" if (domain and change_logo) else ""
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if self.logo else ""
         return "\n".join(
@@ -172,13 +172,13 @@ class ChannelList:
                 key=lambda channel: StringSorter.get_sort_key(channel.name),
             )
 
-    def get_m3u(self, title="", domain=""):
+    def get_m3u(self, change_logo, title="", domain=""):
         with self._lock:
             return "\n".join(
                 filter(
                     None,
                     (
-                        channel_info.get_m3u(title, domain)
+                        channel_info.get_m3u(change_logo, title, domain)
                         for channel_info in self._sorted_channels()
                     ),
                 )

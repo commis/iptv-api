@@ -10,12 +10,12 @@ from services import category_manager
 class EpgBaseModel:
 
     def __init__(
-            self, file: str, source: str, domain: str = None, is_chid: bool = False
+            self, file: str, source: str, domain: str = None, change_cid: bool = False
     ):
         self._file = file
         self._source = source
         self._domain = None if domain is None or domain == "" else domain
-        self._is_chid = is_chid
+        self._change_cid = change_cid
 
     @property
     def file(self):
@@ -30,15 +30,15 @@ class EpgBaseModel:
         return self._domain
 
     @property
-    def is_chid(self):
-        return self._is_chid
+    def change_cid(self):
+        return self._change_cid
 
     def get_logo(self, source_logo: str) -> str:
         if self._domain is None:
             return source_logo
 
         filename = os.path.basename(source_logo)
-        if self.is_chid:
+        if self._change_cid:
             return filename.replace(".png", ".webp")
         return f"{filename}"
 
@@ -58,9 +58,9 @@ class ChannelBaseModel:
         return self._epg
 
     def set_epg(
-            self, file: str, source: str, domain: str = None, is_chid: bool = False
+            self, file: str, source: str, domain: str = None, change_cid: bool = False
     ):
-        self._epg = EpgBaseModel(file, source, domain, is_chid)
+        self._epg = EpgBaseModel(file, source, domain, change_cid)
 
     def clear(self):
         self._epg = None
@@ -95,7 +95,7 @@ class ChannelBaseModel:
         with self._lock:
             category_info = category_manager.get_category_object(channel_name, name)
             if category_info:
-                if self._epg and self._epg.is_chid:
+                if self._epg and self._epg.change_cid:
                     id = category_manager.get_channel_id(id)
 
                 category_name = category_info.get("name", name)
@@ -148,7 +148,8 @@ class ChannelBaseModel:
         with self._lock:
             result = [self._get_extm3u_header()]
             for group_name, channel_list in self._channelGroups.items():
-                result.append(channel_list.get_m3u(group_name, self._epg.domain))
+                change_logo = category_manager.change_logo(group_name)
+                result.append(channel_list.get_m3u(change_logo, group_name, self._epg.domain))
             return "\n".join(result).strip()
 
     def to_txt_string(self) -> str:
@@ -171,7 +172,8 @@ class ChannelBaseModel:
         with self._lock:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
-                file_handle.write(channel_list.get_m3u(group_name, self._epg.domain))
+                change_logo = category_manager.change_logo(group_name)
+                file_handle.write(channel_list.get_m3u(group_name, self._epg.domain), change_logo)
                 file_handle.write("\n")
 
 

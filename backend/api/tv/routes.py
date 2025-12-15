@@ -67,7 +67,7 @@ class EpgRequest(BaseModel):
     file: Optional[str] = Field(default=None, description="直播源回放信息文件")
     source: Optional[str] = Field(default=None, description="EPG源名称")
     domain: Optional[str] = Field(default=None, description="LOGO文件域名")
-    is_chid: Optional[bool] = Field(default=False, description="是否替换Channel ID")
+    change_cid: Optional[bool] = Field(default=False, description="是否替换Channel ID")
 
 
 class UpdateLiveRequest(BaseModel):
@@ -269,7 +269,7 @@ def update_m3u_sources(
             file=request.epg.file,
             source=request.epg.source,
             domain=request.epg.domain,
-            is_chid=request.epg.is_chid,
+            change_cid=request.epg.change_cid,
         )
 
         parser = Parser()
