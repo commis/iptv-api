@@ -173,7 +173,7 @@ class ChannelBaseModel:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
                 change_logo = category_manager.change_logo(group_name)
-                file_handle.write(channel_list.get_m3u(group_name, self._epg.domain), change_logo)
+                file_handle.write(channel_list.get_m3u(change_logo, group_name, self._epg.domain))
                 file_handle.write("\n")
 
 
