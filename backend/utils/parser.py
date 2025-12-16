@@ -10,7 +10,7 @@ logger = LoggerFactory.get_logger(__name__)
 
 
 class Parser:
-    _live_url = "http://107.174.95.154/tvbox/json/live.txt"
+    _live_url = "http://ak3721.top/tvbox/json/live.txt"
 
     @staticmethod
     def get_channel_data(text_data: str) -> list:
