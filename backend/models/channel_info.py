@@ -91,9 +91,10 @@ class ChannelInfo:
 
         logo_url = f"{domain}/" if (domain and change_logo) else ""
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
+        tvg_name = f'tvg-name="{self.name}" ' if self.logo else ""
         tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if self.logo else ""
         return "\n".join(
-            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
+            f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
             for url in sorted(self.urls, key=lambda url: url.speed)
         )
@@ -110,15 +111,15 @@ class ChannelInfo:
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_logo = f'tvg-logo="{self.logo}" ' if self.logo else ""
         return (
-                "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
-                + "\n"
-                + "\n".join(separator)
-                + "\n"
-                + "\n".join(
-            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
-            f"{self.name}\n{url.url}"
-            for url in sorted_urls
-        )
+            "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
+            + "\n"
+            + "\n".join(separator)
+            + "\n"
+            + "\n".join(
+                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
+                f"{self.name}\n{url.url}"
+                for url in sorted_urls
+            )
         )
 
 
