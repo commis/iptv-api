@@ -50,7 +50,7 @@ jobs:
             exit 0
           fi
 
-          cp spider/dist/json/e.xml ./tv/e.xml
+          cp spider/dist/epg/e.xml ./tv/e.xml
           git add spider ./tv/e.xml
           git commit -m "Auto sync submodule: spider (dist/ only)"
           git push origin main
