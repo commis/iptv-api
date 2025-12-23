@@ -62,11 +62,11 @@ class TestMixedSortKey(unittest.TestCase):
         """测试复杂混合场景（字母+数字+汉字+符号）"""
         lst = [
             "2025年元旦", "2024年春节", "B58中文", "A69英文", "test8测试", "test10测试", "#999", "央视新影-中学生",
-            "CCTV-1 综合"
+            "CCTV-1 综合", "CGTN1"
         ]
         expected = [
-            "2024年春节", "2025年元旦", "#999", "A69英文", "B58中文", "CCTV-1 综合", "test8测试", "test10测试",
-            "央视新影-中学生"
+            "2024年春节", "2025年元旦", "A69英文", "B58中文", "CCTV-1 综合", "CGTN1", "test8测试", "test10测试",
+            "央视新影-中学生","#999"
         ]
         self.assertEqual(expected, StringSorter.mixed_sort(lst))
 

@@ -22,6 +22,7 @@ class StringSorter:
         "万": 10000,
     }
 
+    # 正则表达式定义
     __PURE_NUM = re.compile(r"^\d+$")
     __PURE_EN = re.compile(r"^[a-zA-Z\+\-]*$")
     __PURE_CN = re.compile(r"^[\u4e00-\u9fa5]+$")
@@ -30,87 +31,108 @@ class StringSorter:
     __HAS_EN = re.compile(r"[a-zA-Z]")
     __HAS_CN = re.compile(r"[\u4e00-\u9fa5]")
     __HAS_SPECIAL = re.compile(r"[!#@]")
+    __CN_NUM_CHAR = "".join(__CHINESE_NUM_MAP.keys())
     __SPLIT_PATTERN = re.compile(
-        r"([!#@]+)|(\d+)|([a-zA-Z]+)|(["
-        + "".join(__CHINESE_NUM_MAP.keys())
-        + r"])|([\u4e00-\u9fa5])|([+-]+)|([^\d\w\u4e00-\u9fa5!#@+-]+)"
+        rf"([!#@]+)|(\d+)|([a-zA-Z]+)|([{__CN_NUM_CHAR}]+)|([\u4e00-\u9fa5])|([+-]+)|([^\d\w\u4e00-\u9fa5!#@+-]+)"
     )
+    __CN_NUM_PATTERN = re.compile(rf"[{__CN_NUM_CHAR}]+")
 
     @classmethod
-    def __get_str_main_type(cls, s: str) -> int:
+    def __parse_chinese_num(cls, cn_str: str) -> int:
+        """解析连续中文数字字符串（支持十/百/千/万组合，如：十二=12，一百二十三=123）"""
+        if not cn_str or not cls.__CN_NUM_PATTERN.fullmatch(cn_str):
+            return 0
+
+        result = 0
+        temp = 0
+        for char in cn_str:
+            num = cls.__CHINESE_NUM_MAP[char]
+            if num >= 10:  # 十/百/千/万
+                if temp == 0:
+                    temp = 1  # 处理“十”=10，“百”=100（无前置数）
+                result += temp * num
+                temp = 0
+            else:  # 0-9
+                temp = temp * 10 + num
+        result += temp
+        return result
+
+    @classmethod
+    def __get_start_type(cls, s: str) -> int:
+        """获取字符串开头类型（排序优先级）：0=数字开头 1=字母开头 2=汉字开头 3=特殊字符开头 4=空/其他"""
         s_stripped = s.strip()
         if not s_stripped:
-            return 13
-
-        hn = bool(cls.__HAS_NUM.search(s_stripped))
-        he = bool(cls.__HAS_EN.search(s_stripped))
-        hc = bool(cls.__HAS_CN.search(s_stripped))
-        hs = bool(cls.__HAS_SPECIAL.search(s_stripped))
-        pn = bool(cls.__PURE_NUM.match(s_stripped))
-        pe = bool(cls.__PURE_EN.match(s_stripped))
-        pc = bool(cls.__PURE_CN.match(s_stripped))
-        os = bool(cls.__ONLY_SPECIAL.match(s_stripped))
-
-        weight = next(
-            (
-                w
-                for cond, w in [
-                (pn, 0),
-                (hn and he and not hc and not hs, 1),
-                (pe, 2),
-                (hn and hs and not he and not hc, 3),
-                (he and hs and not hn and not hc, 4),
-                (hn and he and hs and not hc, 5),
-                (pc, 6),
-                (hn and hc and not he and not hs, 7),
-                (he and hc and not hn and not hs, 8),
-                (hc and hs and not hn and not he, 9),
-                (hn and he and hc and not hs, 10),
-                (hn and he and hc and hs, 11),
-                (os, 12),
-            ]
-                if cond
-            ),
-            13,
-        )
-        return weight
-
-    @classmethod
-    def __parse_chinese_num(cls, char: str) -> Optional[int]:
-        return cls.__CHINESE_NUM_MAP.get(char)
+            return 4
+        first_char = s_stripped[0]
+        if first_char.isdigit() or first_char in cls.__CHINESE_NUM_MAP:
+            return 0  # 数字开头（含中文数字）
+        elif first_char.isalpha():
+            return 1  # 字母开头
+        elif first_char in "\u4e00-\u9fa5":
+            return 2  # 汉字开头
+        elif first_char in "!#@":
+            return 3  # 特殊字符开头
+        else:
+            return 4  # 其他/空
 
     @classmethod
     def __extract_start_num(cls, s: str) -> float:
+        """提取开头数字（含中文数字），非数字开头返回inf"""
         s_stripped = s.strip()
-        match = re.match(r'^\d+', s_stripped)
-        if match:
-            return int(match.group())
-        return float('inf')
+        if not s_stripped:
+            return float("inf")
+
+        # 匹配开头连续阿拉伯数字
+        num_match = re.match(r"^\d+", s_stripped)
+        if num_match:
+            return int(num_match.group())
+
+        # 匹配开头连续中文数字
+        cn_num_match = re.match(rf"^[{cls.__CN_NUM_CHAR}]+", s_stripped)
+        if cn_num_match:
+            return cls.__parse_chinese_num(cn_num_match.group())
+
+        return float("inf")
 
     @classmethod
-    def __mixed_sort_key(cls, s: str) -> Tuple[int, Tuple, int]:
+    def __mixed_sort_key(cls, s: str) -> Tuple[int, float, Tuple, int]:
+        """
+        生成排序键（严格匹配5条规则）
+        排序优先级：开头类型 → 开头数字值 → 拆分后片段 → 字符串长度
+        """
         s_stripped = s.strip()
+        # 规则1：数字开头优先按数字排序
+        start_type = cls.__get_start_type(s_stripped)
         start_num = cls.__extract_start_num(s_stripped)
-        main_type = cls.__get_str_main_type(s)
         key_parts = []
 
+        # 片段处理规则（按规则3/4/5）
         type_rules = [
-            (lambda p: p[0] in "!#@", lambda p: ("special", p)),
+            # 1. 阿拉伯数字：转整数排序
+            (lambda p: p.isdigit(), lambda p: ("num", int(p))),
+            # 2. 中文数字：解析为整数排序（规则5）
             (
-                lambda p: p.isdigit() or p in cls.__CHINESE_NUM_MAP,
-                lambda p: (
-                    "num",
-                    int(p) if p.isdigit() else cls.__parse_chinese_num(p) or 0,
-                ),
+                lambda p: cls.__CN_NUM_PATTERN.fullmatch(p),
+                lambda p: ("num", cls.__parse_chinese_num(p)),
             ),
-            (lambda p: p[0].isalpha(), lambda p: ("en", (p.lower(), p))),
-            (lambda p: cls.__HAS_CN.match(p), lambda p: ("cn", p)),
-            (lambda p: p in "+-", lambda p: ("symbol", p)),
+            # 3. 字母：先小写再大写（规则2：a < A < b < B）
+            (lambda p: p.isalpha(), lambda p: ("en", (p.lower(), p))),
+            # 4. 特殊字符：按ASCII码排序
+            (lambda p: p[0] in "!#@", lambda p: ("special", (ord(p[0]), p))),
+            # 5. 汉字：按拼音小写排序
+            (
+                lambda p: cls.__HAS_CN.match(p),
+                lambda p: ("cn", "".join(lazy_pinyin(p)).lower()),
+            ),
+            # 6. 符号（+-）：按ASCII码排序
+            (lambda p: p in "+-", lambda p: ("symbol", ord(p))),
+            # 7. 其他字符：按原字符串排序
             (lambda p: True, lambda p: ("other", p)),
         ]
 
+        # 拆分字符串并生成片段排序键
         for part in cls.__SPLIT_PATTERN.findall(s_stripped):
-            part = next(p for p in part if p)
+            part = next(p for p in part if p)  # 取非空片段
             if not part:
                 continue
             for check, handle in type_rules:
@@ -119,8 +141,8 @@ class StringSorter:
                     break
 
         str_len = len(s_stripped) if s_stripped else 0
-        # 排序优先级：开头数字 > 原有main_type > 拆分后的key_parts > 字符串长度
-        return start_num, main_type, tuple(key_parts), str_len
+        # 最终排序键：开头类型 → 开头数字 → 拆分片段 → 字符串长度
+        return start_type, start_num, tuple(key_parts), str_len
 
     @staticmethod
     def get_sort_key(s: str):
