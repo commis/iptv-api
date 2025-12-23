@@ -32,9 +32,11 @@ class StringSorter:
     __HAS_CN = re.compile(r"[\u4e00-\u9fa5]")
     __HAS_SPECIAL = re.compile(r"[!#@]")
     __CN_NUM_CHAR = "".join(__CHINESE_NUM_MAP.keys())
+    # 拆分正则：优先匹配连续中文数字/阿拉伯数字/字母/特殊字符/汉字/符号
     __SPLIT_PATTERN = re.compile(
         rf"([!#@]+)|(\d+)|([a-zA-Z]+)|([{__CN_NUM_CHAR}]+)|([\u4e00-\u9fa5])|([+-]+)|([^\d\w\u4e00-\u9fa5!#@+-]+)"
     )
+    # 中文数字匹配（用于连续解析）
     __CN_NUM_PATTERN = re.compile(rf"[{__CN_NUM_CHAR}]+")
 
     @classmethod
@@ -59,21 +61,25 @@ class StringSorter:
 
     @classmethod
     def __get_start_type(cls, s: str) -> int:
-        """获取字符串开头类型（排序优先级）：0=数字开头 1=字母开头 2=汉字开头 3=特殊字符开头 4=空/其他"""
+        """
+        获取字符串开头类型（排序优先级）：
+        1=字母开头 2=汉字开头 3=特殊字符开头 4=数字开头（含中文数字） 5=空/其他
+        （数字开头优先级最低，排最后）
+        """
         s_stripped = s.strip()
         if not s_stripped:
-            return 4
+            return 5  # 空字符串优先级最低（数字开头之后）
         first_char = s_stripped[0]
-        if first_char.isdigit() or first_char in cls.__CHINESE_NUM_MAP:
-            return 0  # 数字开头（含中文数字）
-        elif first_char.isalpha():
-            return 1  # 字母开头
+        if first_char.isalpha():
+            return 1  # 字母开头（最高优先级）
         elif first_char in "\u4e00-\u9fa5":
-            return 2  # 汉字开头
+            return 2  # 汉字开头（次高）
         elif first_char in "!#@":
-            return 3  # 特殊字符开头
+            return 3  # 特殊字符开头（第三）
+        elif first_char.isdigit() or first_char in cls.__CHINESE_NUM_MAP:
+            return 4  # 数字开头（第四，排最后）
         else:
-            return 4  # 其他/空
+            return 5  # 其他字符（最低）
 
     @classmethod
     def __extract_start_num(cls, s: str) -> float:
@@ -97,11 +103,11 @@ class StringSorter:
     @classmethod
     def __mixed_sort_key(cls, s: str) -> Tuple[int, float, Tuple, int]:
         """
-        生成排序键（严格匹配5条规则）
+        生成排序键（严格匹配5条规则，数字开头排最后）
         排序优先级：开头类型 → 开头数字值 → 拆分后片段 → 字符串长度
         """
         s_stripped = s.strip()
-        # 规则1：数字开头优先按数字排序
+        # 核心调整：数字开头类型优先级最低（4），排最后
         start_type = cls.__get_start_type(s_stripped)
         start_num = cls.__extract_start_num(s_stripped)
         key_parts = []
@@ -111,19 +117,13 @@ class StringSorter:
             # 1. 阿拉伯数字：转整数排序
             (lambda p: p.isdigit(), lambda p: ("num", int(p))),
             # 2. 中文数字：解析为整数排序（规则5）
-            (
-                lambda p: cls.__CN_NUM_PATTERN.fullmatch(p),
-                lambda p: ("num", cls.__parse_chinese_num(p)),
-            ),
+            (lambda p: cls.__CN_NUM_PATTERN.fullmatch(p), lambda p: ("num", cls.__parse_chinese_num(p))),
             # 3. 字母：先小写再大写（规则2：a < A < b < B）
             (lambda p: p.isalpha(), lambda p: ("en", (p.lower(), p))),
             # 4. 特殊字符：按ASCII码排序
             (lambda p: p[0] in "!#@", lambda p: ("special", (ord(p[0]), p))),
             # 5. 汉字：按拼音小写排序
-            (
-                lambda p: cls.__HAS_CN.match(p),
-                lambda p: ("cn", "".join(lazy_pinyin(p)).lower()),
-            ),
+            (lambda p: cls.__HAS_CN.match(p), lambda p: ("cn", "".join(lazy_pinyin(p)).lower())),
             # 6. 符号（+-）：按ASCII码排序
             (lambda p: p in "+-", lambda p: ("symbol", ord(p))),
             # 7. 其他字符：按原字符串排序
@@ -141,7 +141,7 @@ class StringSorter:
                     break
 
         str_len = len(s_stripped) if s_stripped else 0
-        # 最终排序键：开头类型 → 开头数字 → 拆分片段 → 字符串长度
+        # 最终排序键：开头类型（数字开头最低） → 开头数字 → 拆分片段 → 字符串长度
         return start_type, start_num, tuple(key_parts), str_len
 
     @staticmethod

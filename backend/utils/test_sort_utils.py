@@ -56,7 +56,7 @@ class TestMixedSortKey(unittest.TestCase):
         """测试空字符串：空字符串优先排序"""
         lst = ["", "123", "abc", "中文", "@"]
         sorted_lst = StringSorter.mixed_sort(lst)
-        self.assertEqual(['123', 'abc', '中文', '@', ''], sorted_lst)
+        self.assertEqual(['abc', '中文', '@', '123', ''], sorted_lst)
 
     def test_complex_mixed(self):
         """测试复杂混合场景（字母+数字+汉字+符号）"""
@@ -65,8 +65,8 @@ class TestMixedSortKey(unittest.TestCase):
             "CCTV-1 综合", "CGTN1"
         ]
         expected = [
-            "2024年春节", "2025年元旦", "A69英文", "B58中文", "CCTV-1 综合", "CGTN1", "test8测试", "test10测试",
-            "央视新影-中学生","#999"
+            "A69英文", "B58中文", "CCTV-1 综合", "CGTN1", "test8测试", "test10测试",
+            "央视新影-中学生", "#999", "2024年春节", "2025年元旦"
         ]
         self.assertEqual(expected, StringSorter.mixed_sort(lst))
 
