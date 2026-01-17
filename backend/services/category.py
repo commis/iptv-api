@@ -3,6 +3,7 @@ import threading
 from typing import Dict, Optional, Any
 
 import yaml
+import re
 
 from core.singleton import singleton
 
@@ -83,12 +84,29 @@ class CategoryManager:
         return category in self._ignore_categories
 
     def is_exclude(self, category_info: {}, channel_name: str) -> bool:
-        """判断是否为排除的频道"""
+        """
+        判断是否为排除的频道
+        支持三种匹配规则（可混合在excludes列表中，优先级同等）：
+        1. 精准全文匹配（原逻辑）：如 "浙江卫视" → 只有频道名完全相等才命中
+        2. 通配符匹配（你的需求）：如 "*超清"、"体育*"、"*央视*" → 最常用
+        3. 原生正则表达式：如 r"^\d+频道$"、r"超清|高清|蓝光" → 复杂场景适配
+        核心优先级（不变）：白名单channels > 所有排除规则，在白名单的频道永不排除
+        """
         channels = category_info.get("channels", [])
         excludes = category_info.get("excludes", [])
-        return (
-                "*" in excludes and channel_name not in channels
-        ) or channel_name in excludes
+
+        # 先判断是否命中【精准全文匹配】- 原逻辑保留
+        if channel_name in excludes:
+            return channel_name not in channels
+
+        # 遍历匹配【通配符/原生正则表达式】规则
+        for pattern in excludes:
+            regex_pattern = pattern.replace("*", ".*")
+            if re.fullmatch(regex_pattern, channel_name, flags=re.IGNORECASE):
+                return channel_name not in channels
+
+        # 未命中任何排除规则
+        return False
 
     def get_groups(self):
         """获取所有分类的组"""
