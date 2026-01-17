@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Body, Query
@@ -76,7 +76,7 @@ class UpdateLiveRequest(BaseModel):
     output: str = Field(
         default="/usr/share/nginx/tvbox/result.txt", description="直播源输出文件名"
     )
-    url: Optional[str] = Field(default=None, description="直播源同步URL")
+    url: Optional[List[str]] = Field(default=None, description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
     thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
@@ -122,7 +122,7 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
 
 @router.post("/batch", summary="批量检查频道", response_model=TaskResponse)
 def check_batch_channels(
-    request: BatchCheckRequest, background_tasks: BackgroundTasks
+        request: BatchCheckRequest, background_tasks: BackgroundTasks
 ) -> TaskResponse:
     """异步批量检查多个电视频道"""
     try:
@@ -170,34 +170,26 @@ def check_batch_channels(
 
 @router.post("/update/txt", summary="自动从txt更新直播源", response_model=TaskResponse)
 def update_txt_sources(
-    request: UpdateLiveRequest, background_tasks: BackgroundTasks
+        request: UpdateLiveRequest, background_tasks: BackgroundTasks
 ) -> TaskResponse:
     """
     自动更新直播源数据
     """
     try:
+        if request.url is None or request.epg is None:
+            raise Exception("url or epg is empty")
+
         if request.is_clear:
             channel_manager.clear()
             task_manager.clear()
-
-        # 填充默认值
-        if request.url is None:
-            request.url = (
-                "https://gh-proxy.com/github.com/vbskycn/iptv/blob/master/tv/iptv4.txt"
-            )
-        if request.epg is None:
-            request.epg = EpgRequest(
-                file="http://epg.51zmt.top:8000/e.xml",
-                source="?ch={name}&date={date}",
-                domain="",
-            )
 
         channel_manager.set_epg(
             file=request.epg.file, source=request.epg.source, domain=request.epg.domain
         )
 
         parser = Parser()
-        parser.load_remote_url_txt(request.url)
+        for url in request.url:
+            parser.load_remote_url_txt(url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
@@ -245,25 +237,18 @@ def update_txt_sources(
 
 @router.post("/update/m3u", summary="自动从m3u更新直播源", response_model=TaskResponse)
 def update_m3u_sources(
-    request: UpdateLiveRequest, background_tasks: BackgroundTasks
+        request: UpdateLiveRequest, background_tasks: BackgroundTasks
 ) -> TaskResponse:
     """
     自动更新直播源数据
     """
     try:
+        if request.url is None or request.epg is None:
+            raise Exception("url or epg is empty")
+
         if request.is_clear:
             channel_manager.clear()
             task_manager.clear()
-
-        # 填充默认值
-        if request.url is None:
-            request.url = "https://develop202.github.io/migu_video/interface.txt"
-        if request.epg is None:
-            request.epg = EpgRequest(
-                file="https://develop202.github.io/migu_video/playback.xml",
-                source="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
-                domain="",
-            )
 
         channel_manager.set_epg(
             file=request.epg.file,
@@ -273,7 +258,8 @@ def update_m3u_sources(
         )
 
         parser = Parser()
-        parser.load_remote_url_m3u(request.url)
+        for url in request.url:
+            parser.load_remote_url_m3u(url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
@@ -343,12 +329,12 @@ def get_channels_m3u():
 
 @router.post("/cvt/txt", summary="TXT格式转换为M3U格式", response_model=str)
 def convert_txt_to_m3u(
-    txt_data: str = Body(
-        ...,
-        media_type="text/plain",
-        min_length=1,
-        description="待转换的TXT格式直播源数据",
-    )
+        txt_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待转换的TXT格式直播源数据",
+        )
 ):
     """
     将TXT格式的直播源数据转换为M3U格式
@@ -363,12 +349,12 @@ def convert_txt_to_m3u(
 
 @router.post("/cvt/m3u", summary="M3U格式转换为TXT格式", response_model=str)
 def convert_m3u_to_txt(
-    m3u_data: str = Body(
-        ...,
-        media_type="text/plain",
-        min_length=1,
-        description="待转换的M3U格式直播源数据",
-    )
+        m3u_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待转换的M3U格式直播源数据",
+        )
 ):
     """
     将M3U格式的直播源数据转换为TXT格式
@@ -388,13 +374,13 @@ def convert_m3u_to_txt(
 
 @router.post("/mgr/txt", summary="合并TXT格式直播源并选择最优", response_model=str)
 def merge_live_sources(
-    txt_data: str = Body(
-        ...,
-        media_type="text/plain",
-        min_length=1,
-        description="待合并的TXT格式直播源数据",
-    ),
-    top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)"),
+        txt_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待合并的TXT格式直播源数据",
+        ),
+        top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)"),
 ):
     """
     合并TXT格式的直播源数据并选择最优的前N个
@@ -418,15 +404,15 @@ def merge_live_sources(
 
 @router.post("/chr/txt", summary="检测TXT格式直播源有效性", response_model=TaskResponse)
 def check_live_sources(
-    background_tasks: BackgroundTasks,
-    txt_data: str = Body(
-        ...,
-        media_type="text/plain",
-        min_length=1,
-        description="待合并的TXT格式直播源数据",
-    ),
-    is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
-    thread_size: Optional[int] = Query(20, ge=2, le=64, description="并发线程数上限64"),
+        background_tasks: BackgroundTasks,
+        txt_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待合并的TXT格式直播源数据",
+        ),
+        is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
+        thread_size: Optional[int] = Query(20, ge=2, le=64, description="并发线程数上限64"),
 ):
     """
     检测TXT格式直播源有效性
