@@ -67,7 +67,7 @@ class EpgRequest(BaseModel):
     file: Optional[str] = Field(default=None, description="直播源回放信息文件")
     source: Optional[str] = Field(default=None, description="EPG源名称")
     domain: Optional[str] = Field(default=None, description="LOGO文件域名")
-    change_cid: Optional[bool] = Field(default=False, description="是否替换Channel ID")
+    change_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
 
 
 class UpdateLiveRequest(BaseModel):
