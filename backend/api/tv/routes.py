@@ -67,7 +67,8 @@ class EpgRequest(BaseModel):
     file: Optional[str] = Field(default=None, description="直播源回放信息文件")
     source: Optional[str] = Field(default=None, description="EPG源名称")
     domain: Optional[str] = Field(default=None, description="LOGO文件域名")
-    change_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
+    show_logo: Optional[bool] = Field(default=False, description="全局开关，是否打开Logo显示")
+    rename_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
 
 
 class UpdateLiveRequest(BaseModel):
@@ -184,7 +185,10 @@ def update_txt_sources(
             task_manager.clear()
 
         channel_manager.set_epg(
-            file=request.epg.file, source=request.epg.source, domain=request.epg.domain
+            file=request.epg.file,
+            source=request.epg.source,
+            domain=request.epg.domain,
+            show_logo=request.epg.show_logo
         )
 
         parser = Parser()
@@ -254,7 +258,8 @@ def update_m3u_sources(
             file=request.epg.file,
             source=request.epg.source,
             domain=request.epg.domain,
-            change_cid=request.epg.change_cid,
+            show_logo=request.epg.show_logo,
+            rename_cid=request.epg.rename_cid,
         )
 
         parser = Parser()

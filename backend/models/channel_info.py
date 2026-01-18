@@ -85,14 +85,14 @@ class ChannelInfo:
             for url in sorted(self.urls, key=lambda url: url.speed)
         )
 
-    def get_m3u(self, change_logo, title="", domain=""):
+    def get_m3u(self, change_logo, title, domain, show_logo):
         if not title:
             title = self.title
 
         logo_url = f"{domain}/" if (domain and change_logo) else ""
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_name = f'tvg-name="{self.name}" ' if self.logo else ""
-        tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if self.logo else ""
+        tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if (self.logo and show_logo) else ""
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
@@ -111,15 +111,15 @@ class ChannelInfo:
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_logo = f'tvg-logo="{self.logo}" ' if self.logo else ""
         return (
-            "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
-            + "\n"
-            + "\n".join(separator)
-            + "\n"
-            + "\n".join(
-                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
-                f"{self.name}\n{url.url}"
-                for url in sorted_urls
-            )
+                "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
+                + "\n"
+                + "\n".join(separator)
+                + "\n"
+                + "\n".join(
+            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
+            f"{self.name}\n{url.url}"
+            for url in sorted_urls
+        )
         )
 
 
@@ -173,13 +173,13 @@ class ChannelList:
                 key=lambda channel: StringSorter.get_sort_key(channel.name),
             )
 
-    def get_m3u(self, change_logo, title="", domain=""):
+    def get_m3u(self, change_logo, title, domain, show_logo):
         with self._lock:
             return "\n".join(
                 filter(
                     None,
                     (
-                        channel_info.get_m3u(change_logo, title, domain)
+                        channel_info.get_m3u(change_logo, title, domain, show_logo)
                         for channel_info in self._sorted_channels()
                     ),
                 )
@@ -204,9 +204,9 @@ class ChannelList:
                 if txt_line:
                     file_handle.write(f"{txt_line}\n")
 
-    def write_to_m3u_file(self, group_name, domain, file_handle):
+    def write_to_m3u_file(self, group_name, domain, show_logo, file_handle):
         with self._lock:
             for channel_info in self._sorted_channels():
-                m3u_line = channel_info.get_m3u(group_name, domain)
+                m3u_line = channel_info.get_m3u(group_name, domain, show_logo)
                 if m3u_line:
                     file_handle.write(f"{m3u_line}\n")
