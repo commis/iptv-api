@@ -1,10 +1,14 @@
 import os
+import re
 import threading
 from typing import Dict
 
 from core.singleton import singleton
 from models.channel_info import ChannelList, ChannelInfo
 from services import category_manager
+
+# 预编译正则，提升性能（推荐写法）
+PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
 
 
 class EpgBaseModel:
@@ -43,7 +47,7 @@ class EpgBaseModel:
 
         filename = os.path.basename(source_logo)
         if self._rename_cid:
-            return filename.replace(".png", ".webp")
+            return PIC_SUFFIX_PATTERN.sub('.webp', filename)
         return f"{filename}"
 
 
