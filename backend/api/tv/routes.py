@@ -64,26 +64,35 @@ class BatchCheckRequest(BaseModel):
 
 
 class EpgRequest(BaseModel):
-    file: Optional[str] = Field(default=None, description="直播源回放信息文件")
-    source: Optional[str] = Field(default=None, description="EPG源名称")
-    domain: Optional[str] = Field(default=None, description="LOGO文件域名")
-    show_logo: Optional[bool] = Field(default=False, description="全局开关，是否打开Logo显示")
+    file: Optional[str] = Field(default="https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
+                                description="直播源回放信息文件")
+    source: Optional[str] = Field(default="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
+                                  description="EPG源名称")
+    domain: Optional[str] = Field(default="", description="LOGO文件域名")
+    show_logo: Optional[bool] = Field(default=True, description="全局开关，是否打开Logo显示")
     rename_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
 
 
 class UpdateLiveRequest(BaseModel):
     """更新直播源请求"""
 
-    output: str = Field(
-        default="/usr/share/nginx/tvbox/result.txt", description="直播源输出文件名"
-    )
-    url: Optional[List[str]] = Field(default=None, description="直播源同步URL")
+    output: str = Field(default="/tmp/result.txt", description="直播源输出文件名")
+    url: Optional[List[str]] = Field(default="", description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
     thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
     low_limit: Optional[int] = Field(
         5, ge=5, le=300, description="自动更新频道数量下限"
     )
+
+
+class UpdateMiguRequest(BaseModel):
+    """更新直播源请求"""
+
+    output: str = Field(default="/tmp/iptv4.txt", description="直播源输出文件名")
+    epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
+    is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
+    thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
 
 
 class ChannelQuery(BaseModel):
@@ -170,9 +179,7 @@ def check_batch_channels(
 
 
 @router.post("/update/txt", summary="自动从txt更新直播源", response_model=TaskResponse)
-def update_txt_sources(
-        request: UpdateLiveRequest, background_tasks: BackgroundTasks
-) -> TaskResponse:
+def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """
     自动更新直播源数据
     """
@@ -240,9 +247,7 @@ def update_txt_sources(
 
 
 @router.post("/update/m3u", summary="自动从m3u更新直播源", response_model=TaskResponse)
-def update_m3u_sources(
-        request: UpdateLiveRequest, background_tasks: BackgroundTasks
-) -> TaskResponse:
+def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """
     自动更新直播源数据
     """
@@ -308,6 +313,62 @@ def update_m3u_sources(
     except Exception as e:
         logger.error(f"update m3u live sources request failed: {str(e)}", exc_info=True)
         handle_exception("update m3u live sources request failed")
+
+
+@router.post("/update/migu", summary="自动从migu更新直播源", response_model=TaskResponse)
+def update_migu_sources(request: UpdateMiguRequest, background_tasks: BackgroundTasks) -> TaskResponse:
+    """
+    自动更新直播源数据
+    """
+    try:
+        if request.is_clear:
+            channel_manager.clear()
+            task_manager.clear()
+
+        channel_manager.set_epg(
+            file=request.epg.file,
+            source=request.epg.source,
+            domain=request.epg.domain,
+            show_logo=request.epg.show_logo,
+            rename_cid=request.epg.rename_cid,
+        )
+
+        task_id = task_manager.create_task(
+            url="",
+            total=0,
+            type="update_migu_sources",
+            description=f"output: {request.output}",
+        )
+
+        def run_update_live_task() -> None:
+            """后台运行的批量检查任务"""
+            try:
+                parser = Parser()
+                parser.load_remote_migu()
+                total_count = channel_manager.total_count()
+
+                task_manager.update_task(task_id, status="running", total=total_count)
+                task = task_manager.get_task(task_id)
+
+                # checker = ChannelChecker(request.url)
+                # success_count = checker.update_batch_live(
+                #     threads=request.thread_size,
+                #     task_status=task,
+                #     check_m3u8_invalid=False,
+                #     output_file=request.output,
+                # )
+                task.update({"status": "completed", "result": {"success": total_count}})
+            except Exception as re:
+                logger.error(f"update migu live sources task failed: {str(re)}", exc_info=True)
+                task_manager.update_task(task_id, status="error", error=str(re))
+
+        background_tasks.add_task(run_update_live_task)
+        return TaskResponse(data={"task_id": task_id})
+    except ValueError as ve:
+        handle_exception(str(ve), status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        logger.error(f"update migu live sources request failed: {str(e)}", exc_info=True)
+        handle_exception("update migu live sources request failed")
 
 
 @router.get("/show/txt", summary="获取频道列表(TXT格式)", response_class=Response)
