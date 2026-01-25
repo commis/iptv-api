@@ -17,7 +17,7 @@ class CreateApplication:
             title="IPTV API文档",
             description="自动生成的API文档",
             version="1.0.0",
-            openapi_prefix=api_prefix,
+            root_path=api_prefix,
             debug=True)
 
         # 初始化路由扫描器

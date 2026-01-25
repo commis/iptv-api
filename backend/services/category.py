@@ -89,7 +89,7 @@ class CategoryManager:
         支持三种匹配规则（可混合在excludes列表中，优先级同等）：
         1. 精准全文匹配（原逻辑）：如 "浙江卫视" → 只有频道名完全相等才命中
         2. 通配符匹配（你的需求）：如 "*超清"、"体育*"、"*央视*" → 最常用
-        3. 原生正则表达式：如 r"^\d+频道$"、r"超清|高清|蓝光" → 复杂场景适配
+        3. 原生正则表达式：如 r"^\\d+频道$"、r"超清|高清|蓝光" → 复杂场景适配
         核心优先级（不变）：白名单channels > 所有排除规则，在白名单的频道永不排除
         """
         channels = category_info.get("channels", [])
@@ -174,6 +174,7 @@ class CategoryManager:
         return self._channel_name_map.get(channel_name, channel_name)
 
     def get_channel_id(self, channel_id: str) -> str:
+        channel_id = channel_id.replace("频道", "")
         return self._channel_id_map.get(channel_id, channel_id)
 
 

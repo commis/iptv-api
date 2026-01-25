@@ -28,9 +28,13 @@ class RouteScanner:
             name="static")
 
         @app.get("/", include_in_schema=False)
-        def redirect_swagger():
+        async def redirect_swagger():
             swagger_url = app.url_path_for("swagger_ui_html")
             return RedirectResponse(url=swagger_url)
+
+        @app.get("/health")
+        async def health():
+            return {"status": "healthy"}
 
     def register_routers(self):
         """将收集到的APIRouter注册到FastAPI应用"""

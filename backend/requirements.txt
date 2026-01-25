@@ -1,11 +1,15 @@
-gunicorn>=20.1.0
-uvicorn>=0.14.0
-requests>=2.31.0
-fastapi>=0.68.1
-pydantic>=1.8.2
-av>=10.0.0
-m3u8>=0.6.0
-lxml>=4.6.3
-beautifulsoup4>=4.9.3
-pypinyin>=0.40.0
-pyyaml>=6.0.1
+# Web框架&服务器
+requests==2.32.3
+fastapi==0.115.4
+gunicorn==22.0.0
+uvicorn==0.29.0
+
+# 网页、视频解析核心
+beautifulsoup4==4.12.3
+soupsieve==2.5
+pydantic==2.8.2
+
+# 工具类
+m3u8==4.1.0
+pypinyin==0.52.0
+pyyaml==6.0.2

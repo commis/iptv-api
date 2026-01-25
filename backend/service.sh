@@ -15,7 +15,7 @@ if [ ! -f "$ENV_FILE" ]; then
 fi
 source "${SCRIPT_DIR}/../.env"
 
-PIDFILE="/var/run//tvbox.pid"
+PIDFILE="/var/run/tvbox.pid"
 COMMAND="gunicorn -c gunicorn.conf.py application:app"
 
 function init_env() {
@@ -54,7 +54,7 @@ function start() {
     echo "Service started successfully.，PID: $(cat "$PIDFILE")"
   else
     echo "Service failed to start." >&2
-    rm -f "$PIDFILE"
+#    rm -f "$PIDFILE"
     return 1
   fi
 }

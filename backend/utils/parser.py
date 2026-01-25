@@ -45,9 +45,7 @@ class Parser:
                 if not url:
                     continue
 
-                category_info = category_manager.get_category_object(
-                    channel_name, category_stack
-                )
+                category_info = category_manager.get_category_object(channel_name, category_stack)
                 category_name = category_info.get("name")
                 if not category_manager.is_exclude(category_info, channel_name):
                     channel_list.append((category_name, channel_name, url))
@@ -146,9 +144,7 @@ class Parser:
                         continue
                     change_logo = category_manager.change_logo(define_category)
                     tvg_new_logo = channel_manager.epg.get_logo(tvg_logo) if change_logo else tvg_logo
-                    channel_manager.add_channel(
-                        define_category, channel_name, line, tvg_id, tvg_new_logo
-                    )
+                    channel_manager.add_channel(define_category, channel_name, line, tvg_id, tvg_new_logo)
 
             # 处理自建频道
             self.load_remote_url_txt(self._live_url)
@@ -162,9 +158,10 @@ class Parser:
             for cate in migu_cates:
                 data_list = self._get_migu_cate_data(cate.vid)
                 for data in data_list:
-                    tvg_id = category_manager.get_channel_id(data.name)
                     cate_name = category_manager.get_category(cate.name)
-                    channel_manager.add_channel(cate_name, data.name, data.url, tvg_id, data.pic)
+                    tvg_id = category_manager.get_channel_id(data.name)
+                    channel_name = category_manager.get_channel(data.name)
+                    channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
 
             # 处理自建频道
             self.load_remote_url_txt(self._live_url)

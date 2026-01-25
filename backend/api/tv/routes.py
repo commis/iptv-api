@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Body, Query
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, model_validator, field_validator
+from pydantic import BaseModel, Field, validator
 from starlette import status
 
 from api.tv.converter import LiveConverter
@@ -28,7 +28,7 @@ class SingleCheckRequest(BaseModel):
     url: str = Field(..., description="频道URL")
     rule: str = Field(default="/{i}/", description="解析规则，必须包含{i}占位符")
 
-    @field_validator("url")
+    @validator("url")
     def valid_url(cls, value):
         """验证URL格式是否有效"""
         try:
@@ -39,7 +39,7 @@ class SingleCheckRequest(BaseModel):
         except ValueError as e:
             raise ValueError(f"URL验证失败: {str(e)}")
 
-    @field_validator("rule")
+    @validator("rule")
     def rule_contains_placeholder(cls, value):
         """验证规则中是否包含{i}占位符"""
         if "{i}" not in value:
@@ -76,32 +76,21 @@ class EpgRequest(BaseModel):
 class UpdateLiveRequest(BaseModel):
     """更新直播源请求"""
 
-    output: str = Field(default="/tmp/result.txt", description="直播源输出文件名")
-    url: Optional[List[str]] = Field(default="", description="直播源同步URL")
+    output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
+    url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
     thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
-    low_limit: Optional[int] = Field(
-        5, ge=5, le=300, description="自动更新频道数量下限"
-    )
-
-
-class UpdateMiguRequest(BaseModel):
-    """更新直播源请求"""
-
-    output: str = Field(default="/tmp/iptv4.txt", description="直播源输出文件名")
-    epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
-    is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
+    low_limit: Optional[int] = Field(5, ge=5, le=300, description="自动更新频道数量下限")
 
 
 class ChannelQuery(BaseModel):
-    speed: int
+    speed: int = Field(..., description="频道速率")
 
-    @model_validator(mode="after")
+    @validator("speed")
     def check_speed(cls, values):
         if not values.speed or values.speed.strip() == "":
-            raise ValueError("任务ID不能为空")
+            raise ValueError("频道速率不能为空")
         return values
 
 
@@ -316,7 +305,7 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
 
 
 @router.post("/update/migu", summary="自动从migu更新直播源", response_model=TaskResponse)
-def update_migu_sources(request: UpdateMiguRequest, background_tasks: BackgroundTasks) -> TaskResponse:
+def update_migu_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """
     自动更新直播源数据
     """
@@ -350,14 +339,14 @@ def update_migu_sources(request: UpdateMiguRequest, background_tasks: Background
                 task_manager.update_task(task_id, status="running", total=total_count)
                 task = task_manager.get_task(task_id)
 
-                # checker = ChannelChecker(request.url)
-                # success_count = checker.update_batch_live(
-                #     threads=request.thread_size,
-                #     task_status=task,
-                #     check_m3u8_invalid=False,
-                #     output_file=request.output,
-                # )
-                task.update({"status": "completed", "result": {"success": total_count}})
+                checker = ChannelChecker()
+                success_count = checker.update_batch_live(
+                    threads=request.thread_size,
+                    task_status=task,
+                    check_m3u8_invalid=False,
+                    output_file=request.output,
+                )
+                task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
                 logger.error(f"update migu live sources task failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
