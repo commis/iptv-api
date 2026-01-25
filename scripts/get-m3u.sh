@@ -30,8 +30,15 @@ update_m3u() {
   COUNTER=0
   while true; do
     if [ -f "${TARGET_FILE}" ]; then
-      scp -q ${TARGET_FILE} host-154:/home/app/tvbox/spider/dist/json/
-      echo "文件传输成功，退出检测循环。"
+      MAX_RETRY=5
+      for ((i = 1; i <= MAX_RETRY; i++)); do
+        scp -q "${TARGET_FILE}" host-154:/home/app/tvbox/spider/dist/json/ && {
+          echo "直播源文件传输成功。"
+          break
+        }
+        [ $i -eq $MAX_RETRY ] && break
+        sleep 10
+      done
       break
     fi
     if [ ${COUNTER} -ge ${MAX_TIMEOUT} ]; then
