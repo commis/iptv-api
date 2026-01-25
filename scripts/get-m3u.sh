@@ -20,7 +20,8 @@ update_m3u() {
   "output": "/tmp/migu3721.txt",
   "epg": {
     "file": "https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
-    "source": "&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}"
+    "source": "&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
+	"show_logo": "True"
   }
 }' >/dev/null 2>&1
 
@@ -51,21 +52,21 @@ update_m3u() {
 }
 
 case "$1" in
-all)
-  echo "update all"
-  update_api
-  update_m3u
-  ;;
-api)
-  echo "update api"
-  update_api
-  ;;
-m3u)
-  echo "update m3u"
-  update_m3u
-  ;;
-*)
-  echo "usage: $0 {all|api|m3u}"
-  exit 1
-  ;;
+  all)
+    echo "update all"
+    update_api
+    update_m3u
+    ;;
+  api)
+    echo "update api"
+    update_api
+    ;;
+  m3u)
+    echo "update m3u"
+    update_m3u
+    ;;
+  *)
+    echo "usage: $0 {all|api|m3u}"
+    exit 1
+    ;;
 esac
