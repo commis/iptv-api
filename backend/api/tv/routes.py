@@ -1,4 +1,5 @@
 import re
+import time
 from typing import Optional, List
 from urllib.parse import urlparse
 
@@ -335,9 +336,14 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 parser = Parser()
                 parser.load_remote_migu()
                 total_count = channel_manager.total_count()
+                # task_manager.update_task(task_id, status="running", total=total_count)
 
-                task_manager.update_task(task_id, status="running", total=total_count)
                 task = task_manager.get_task(task_id)
+                task.update({
+                    "total": total_count,
+                    "status": "running",
+                    "updated_at": int(time.time()),
+                })
 
                 checker = ChannelChecker()
                 success_count = checker.update_batch_live(

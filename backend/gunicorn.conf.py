@@ -4,7 +4,7 @@ import os
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 
-bind = "0.0.0.0:8001"
+bind = "0.0.0.0:3000"
 workers = 1
 worker_class = "uvicorn.workers.UvicornWorker"
 chdir = project_root
