@@ -303,14 +303,17 @@ class Parser:
             dd_calcu.append(puData[len(puData) - i - 1])
             dd_calcu.append(puData[i])
 
-            if i == 1:
-                dd_calcu.append("v")
-            elif i == 2:
-                date_str = datetime.now().strftime("%Y%m%d")
-                dd_calcu.append(keys[int(date_str[2])])
-            elif i == 3:
-                dd_calcu.append(keys[int(programId[6])])
-            elif i == 4:
-                dd_calcu.append("a")
+            match i:
+                case 1:
+                    dd_calcu.append("v")
+                case 2:
+                    date_str = datetime.now().strftime("%Y%m%d")
+                    dd_calcu.append(keys[int(date_str[2])])
+                case 3:
+                    dd_calcu.append(keys[int(programId[6])])
+                case 4:
+                    dd_calcu.append("a")
+                case _:
+                    pass
 
         return "".join(dd_calcu)
