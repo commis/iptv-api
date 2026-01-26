@@ -35,7 +35,7 @@ class CreateApplication:
         uvicorn.run(
             f"{module_name}:app",
             host="0.0.0.0",
-            port=8001,
+            port=3000,
             workers=1
         )
 
