@@ -2,6 +2,7 @@
 
 logs/
 spider/dist/
+spider/dist/epg/*.xml
 
 **/__pycache__/
 **/*.pyc
