@@ -1,3 +1,4 @@
+import os
 import random
 import time
 from datetime import datetime
@@ -9,9 +10,11 @@ from bs4 import BeautifulSoup
 from api.tv.converter import LiveConverter
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
+from models.counter import Counter
 from models.migu_info import MiguCateInfo, MiguDataInfo
-from services import channel_manager, category_manager
+from services import channel_manager, category_manager, task_manager
 from utils.encry_util import getStringMD5
+from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_str
 
 logger = LoggerFactory.get_logger(__name__)
 
@@ -152,17 +155,28 @@ class Parser:
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
 
-    def load_remote_migu(self):
+    def load_remote_migu(self, task_id, epg_file):
         try:
+            # 确保目录存在
+            os.makedirs(os.path.dirname(epg_file), exist_ok=True)
             migu_cates = self._migu_cate_list()
-            for cate in migu_cates:
-                data_list = self._get_migu_cate_data(cate.vid)
-                for data in data_list:
-                    cate_name = category_manager.get_category(cate.name)
-                    tvg_id = category_manager.get_channel_id(data.name)
-                    channel_name = category_manager.get_channel(data.name)
-                    channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
-
+            epg_file_bak = epg_file + ".bak"
+            with open(epg_file_bak, "w", encoding="utf-8") as f:
+                f.write("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
+                        "<tv generator-info-name=\"Tak\" generator-info-url=\"https://ak3721.top/tv\">\n")
+                processed_counter = Counter()
+                for cate in migu_cates:
+                    data_list = self._get_migu_cate_data(cate.vid)
+                    for data in data_list:
+                        self._get_migu_playback_data(data, f)
+                        cate_name = category_manager.get_category(cate.name)
+                        tvg_id = category_manager.get_channel_id(data.name)
+                        channel_name = category_manager.get_channel(data.name)
+                        channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
+                        processed_counter.increment()
+                    task_manager.update_task(task_id, processed=processed_counter.get_value())
+                f.write("</tv>\n")
+            os.rename(epg_file_bak, epg_file)
             # 处理自建频道
             self.load_remote_url_txt(self._live_url)
             channel_manager.sort()
@@ -185,11 +199,59 @@ class Parser:
 
         return output_data
 
-    def _get_migu_cate_data(self, id: str) -> List[MiguDataInfo]:
+    def _get_migu_playback_data(self, channel_date, fd):
+        date_str = datetime.now().strftime("%Y%m%d")
+        if Constants.cvt_exist(channel_date.name):
+            tv_name = Constants.get_cvt_name(channel_date.name)
+            self._get_migu_playback_data_cctv(channel_date.name, tv_name, date_str, fd)
+            return
+
+        # 非CCTV的其他频道
+        fetch_url = f"https://program-sc.miguvideo.com/live/v2/tv-programs-data/{channel_date.pid}/{date_str}"
+        try:
+            resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            playback_data = resp.json().get("body", {}).get("program")[0].get("content", [])
+            if playback_data:
+                fd.write(f"    <channel id=\"{channel_date.name}\">\n"
+                         f"        <display-name lang=\"zh\">{channel_date.name}</display-name>\n"
+                         "    </channel>\n")
+                for data in playback_data:
+                    st_str = ms2time_str(data.get('startTime'))
+                    et_str = ms2time_str(data.get('endTime'))
+                    cont_name = get_xml_cvt_string(data.get("contName"))
+                    fd.write(
+                        f"    <programme channel=\"{channel_date.name}\" start=\"{st_str} +0800\" stop=\"{et_str} +0800\">\n"
+                        f"        <title lang=\"zh\">{cont_name}</title>\n"
+                        "    </programme>\n")
+        except Exception as e:
+            logger.error(f"get migu playback data failed: {e}")
+
+    def _get_migu_playback_data_cctv(self, name: str, date_str: str, tv_name: str, fd):
+        fetch_url = f"https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d={date_str}&c={tv_name}"
+        try:
+            resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            playback_data = resp.json().get(tv_name, {}).get("program", {})
+            if playback_data:
+                fd.write(f"    <channel id=\"{name}\">\n"
+                         f"        <display-name lang=\"zh\">{name}</display-name>\n"
+                         "    </channel>\n")
+                for data in playback_data:
+                    st_str = seconds_to_time_str(data.get('st'))
+                    et_str = seconds_to_time_str(data.get('et'))
+                    cont_name = get_xml_cvt_string(data.get("t"))
+                    fd.write(f"    <programme channel=\"{name}\" start=\"{st_str} +0800\" stop=\"{et_str} +0800\">\n"
+                             f"        <title lang=\"zh\">{cont_name}</title>\n"
+                             "    </programme>\n")
+        except Exception as e:
+            logger.error(f"get migu playback data for CCTV failed: {e}")
+
+    def _get_migu_cate_data(self, pid: str) -> List[MiguDataInfo]:
         migu_data_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
         output_data = []
         try:
-            migu_url = migu_data_url + id
+            migu_url = migu_data_url + pid
             response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
             json_cate_data = response.json()

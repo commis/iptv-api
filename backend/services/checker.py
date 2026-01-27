@@ -36,11 +36,11 @@ class ChannelChecker:
 
     @log_execution_time(name=ref("channel_info.name"), url=ref("url_info.url"))
     def check_single_with_timeout(
-        self,
-        channel_info: ChannelInfo,
-        url_info: ChannelUrl,
-        check_sub_m3u8,
-        timeout=60,
+            self,
+            channel_info: ChannelInfo,
+            url_info: ChannelUrl,
+            check_sub_m3u8,
+            timeout=60,
     ) -> bool:
         """带超时控制的频道检测方法"""
         logger.debug(f"Checking {channel_info.name} with {url_info.url}")
@@ -61,7 +61,7 @@ class ChannelChecker:
                 return False
 
     def _check_single(
-        self, channel_info: ChannelInfo, url_info: ChannelUrl, check_sub_m3u8
+            self, channel_info: ChannelInfo, url_info: ChannelUrl, check_sub_m3u8
     ) -> bool:
         if url_info.url.endswith(".mp4"):
             return self._check_mp4_validity(url_info.url)
@@ -382,9 +382,7 @@ class ChannelChecker:
         )
         with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
             # 使用chunksize提高I/O密集型任务效率
-            results = executor.map(
-                check_task, task_generator(), chunksize=max(1, total_count // 10)
-            )
+            results = executor.map(check_task, task_generator(), chunksize=max(1, total_count // 10))
             for result, channel_info in results:
                 if result and channel_info:
                     channel_manager.add_channel_info(None, channel_info)
@@ -392,23 +390,16 @@ class ChannelChecker:
 
                 with task_status_lock:
                     processed_count.increment()
-                    task_status.update(
-                        {
-                            "progress": round(
-                                processed_count.get_value() / total_count * 100, 2
-                            ),
-                            "processed": processed_count.get_value(),
-                            "success": success_count.get_value(),
-                            "updated_at": int(time.time()),
-                        }
-                    )
-
+                    task_status.update({
+                        "progress": round(processed_count.get_value() / total_count * 100, 2),
+                        "processed": processed_count.get_value(),
+                        "success": success_count.get_value(),
+                        "updated_at": int(time.time()),
+                    })
         channel_manager.sort()
         return success_count.get_value()
 
-    def update_batch_live(
-        self, threads, task_status, check_m3u8_invalid, output_file=None
-    ) -> int:
+    def update_batch_live(self, threads, task_status, check_m3u8_invalid, output_file=None) -> int:
         """批量更新直播频道信息"""
         task_status_lock = threading.Lock()
         success_counter = Counter()
@@ -429,14 +420,12 @@ class ChannelChecker:
                 with task_status_lock:
                     processed_counter.increment()
                     processed = processed_counter.get_value()
-                    task_status.update(
-                        {
-                            "progress": round(processed / total_count * 100, 2),
-                            "processed": processed,
-                            "success": success_counter.get_value(),
-                            "updated_at": int(time.time()),
-                        }
-                    )
+                    task_status.update({
+                        "progress": round(processed / total_count * 100, 2),
+                        "processed": processed,
+                        "success": success_counter.get_value(),
+                        "updated_at": int(time.time()),
+                    })
 
         # 生成任务并立即处理
         optimal_threads = min(
@@ -448,8 +437,8 @@ class ChannelChecker:
                 actual_count = 0
                 # 部分分类组忽略不予处理
                 for group_name in filter(
-                    lambda g: not category_manager.is_ignore(g),
-                    channel_manager.get_groups(),
+                        lambda g: not category_manager.is_ignore(g),
+                        channel_manager.get_groups(),
                 ):
                     chanmel_list = channel_manager.get_channel_list(group_name)
                     channel_name_list = chanmel_list.get_channel_names()
@@ -462,9 +451,7 @@ class ChannelChecker:
                 # 验证实际任务数
                 nonlocal total_count
                 if actual_count != total_count:
-                    logger.warning(
-                        f"Actual task count ({actual_count}) differs from expected total ({total_count})"
-                    )
+                    logger.warning(f"Actual task count ({actual_count}) differs from expected total ({total_count})")
                     total_count = actual_count
                     task_status["total"] = total_count
                 return actual_count
@@ -480,9 +467,7 @@ class ChannelChecker:
         # 最终状态验证
         final_processed = processed_counter.get_value()
         final_success = success_counter.get_value()
-        logger.info(
-            f"Final status: Total={total_count}, Processed={final_processed}, Success={final_success}"
-        )
+        logger.info(f"Final status: Total={total_count}, Processed={final_processed}, Success={final_success}")
 
         self._write_data_to_txt_file(output_file)
         self._write_data_to_m3u_file(output_file)

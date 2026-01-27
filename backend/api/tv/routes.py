@@ -1,5 +1,4 @@
 import re
-import time
 from typing import Optional, List
 from urllib.parse import urlparse
 
@@ -65,10 +64,11 @@ class BatchCheckRequest(BaseModel):
 
 
 class EpgRequest(BaseModel):
-    file: Optional[str] = Field(default="https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
-                                description="直播源回放信息文件")
+    file: Optional[str] = Field(default="/tmp/e.xml", description="直播源回放信息文件")
+    url: Optional[str] = Field(default="https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
+                               description="直播源回放信息URL")
     source: Optional[str] = Field(default="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
-                                  description="EPG源名称")
+                                  description="直播源回放查找参数")
     domain: Optional[str] = Field(default="", description="LOGO文件域名")
     show_logo: Optional[bool] = Field(default=True, description="全局开关，是否打开Logo显示")
     rename_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
@@ -182,7 +182,7 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             task_manager.clear()
 
         channel_manager.set_epg(
-            file=request.epg.file,
+            url=request.epg.url,
             source=request.epg.source,
             domain=request.epg.domain,
             show_logo=request.epg.show_logo
@@ -250,7 +250,7 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             task_manager.clear()
 
         channel_manager.set_epg(
-            file=request.epg.file,
+            url=request.epg.url,
             source=request.epg.source,
             domain=request.epg.domain,
             show_logo=request.epg.show_logo,
@@ -316,7 +316,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
             task_manager.clear()
 
         channel_manager.set_epg(
-            file=request.epg.file,
+            url=request.epg.url,
             source=request.epg.source,
             domain=request.epg.domain,
             show_logo=request.epg.show_logo,
@@ -333,17 +333,13 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
         def run_update_live_task() -> None:
             """后台运行的批量检查任务"""
             try:
-                parser = Parser()
-                parser.load_remote_migu()
-                total_count = channel_manager.total_count()
-                # task_manager.update_task(task_id, status="running", total=total_count)
-
                 task = task_manager.get_task(task_id)
-                task.update({
-                    "total": total_count,
-                    "status": "running",
-                    "updated_at": int(time.time()),
-                })
+                task_manager.update_task(task_id, status="running")
+
+                parser = Parser()
+                parser.load_remote_migu(task_id, request.epg.file)
+                total_count = channel_manager.total_count()
+                task_manager.update_task(task_id, total=total_count, processed=0)
 
                 checker = ChannelChecker()
                 success_count = checker.update_batch_live(

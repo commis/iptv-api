@@ -14,16 +14,16 @@ PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
 class EpgBaseModel:
 
     def __init__(
-            self, file: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
-        self._file = file
+            self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+        self._url = url
         self._source = source
         self._domain = None if domain is None or domain == "" else domain
         self._show_logo = show_logo
         self._rename_cid = rename_cid
 
     @property
-    def file(self):
-        return self._file
+    def url(self):
+        return self._url
 
     @property
     def source(self):
@@ -66,8 +66,8 @@ class ChannelBaseModel:
         return self._epg
 
     def set_epg(
-            self, file: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
-        self._epg = EpgBaseModel(file, source, domain, show_logo, rename_cid)
+            self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+        self._epg = EpgBaseModel(url, source, domain, show_logo, rename_cid)
 
     def clear(self):
         self._epg = None
@@ -144,7 +144,7 @@ class ChannelBaseModel:
             return base_header
 
         extra_params = (
-            f'x-tvg-url="{self._epg.file}" '
+            f'x-tvg-url="{self._epg.url}" '
             f'catchup="append" '
             f'catchup-source="{self._epg.source}"'
         )
