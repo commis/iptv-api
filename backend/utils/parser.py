@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import List
 
 import requests
-from bs4 import BeautifulSoup
 
 from api.tv.converter import LiveConverter
 from core.constants import Constants
@@ -59,23 +58,6 @@ class Parser:
 
         return channel_list
 
-    def load_remote_sitemap(self, url: str):
-        try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
-            response.raise_for_status()
-            soup = BeautifulSoup(response.text, "xml")
-            for loc in soup.find_all("loc"):
-                url = loc.text.strip()
-                if not url.endswith("iptv4.txt"):
-                    continue
-                self.load_remote_url_txt(url, True)
-
-            # 处理自建频道
-            self.load_remote_url_txt(self._live_url)
-            channel_manager.sort()
-        except Exception as e:
-            logger.error(f"parse sitemap data failed: {e}")
-
     def load_remote_url_txt(self, url, use_ignore=False):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
@@ -90,16 +72,16 @@ class Parser:
 
         category_name = None
         for line in (
-            line.strip()
-            for line in text_data.splitlines()
-            if line.strip() and not line.startswith("#")
+                line.strip()
+                for line in text_data.splitlines()
+                if line.strip() and not line.startswith("#")
         ):
             if line.endswith("#genre#"):
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
                 define_category = category_manager.get_category(parse_category)
                 if define_category is None or (
-                    use_ignore and category_manager.is_ignore(define_category)
+                        use_ignore and category_manager.is_ignore(define_category)
                 ):
                     continue
                 if category_manager.exists(define_category):
@@ -128,7 +110,7 @@ class Parser:
             group_title = ""
             channel_name = None
             for line in (
-                line.strip() for line in m3u_data.splitlines() if line.strip()
+                    line.strip() for line in m3u_data.splitlines() if line.strip()
             ):
                 if line.startswith("#EXTM3U"):
                     continue
@@ -144,9 +126,9 @@ class Parser:
                 elif line.startswith(("http:", "https:")):
                     define_category = category_manager.get_category(group_title)
                     if (
-                        define_category is None
-                        or (category_manager.is_ignore(define_category))
-                        or not category_manager.exists(define_category)
+                            define_category is None
+                            or (category_manager.is_ignore(define_category))
+                            or not category_manager.exists(define_category)
                     ):
                         continue
                     change_logo = category_manager.change_logo(define_category)
@@ -165,7 +147,7 @@ class Parser:
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
 
-    def load_remote_migu(self, task_id, epg_file):
+    def load_remote_url_migu(self, task_id, epg_file):
         try:
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
@@ -180,17 +162,13 @@ class Parser:
                 for cate in migu_cates:
                     data_list = self._get_migu_cate_data(cate.vid)
                     for data in data_list:
-                        self._get_migu_playback_data(data, f)
                         cate_name = category_manager.get_category(cate.name)
                         tvg_id = category_manager.get_channel_id(data.name)
                         channel_name = category_manager.get_channel(data.name)
-                        channel_manager.add_channel(
-                            cate_name, channel_name, data.url, tvg_id, data.pic
-                        )
+                        channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
+                        self._get_migu_playback_data(cate_name, data, f)
                         processed_counter.increment()
-                    task_manager.update_task(
-                        task_id, processed=processed_counter.get_value()
-                    )
+                    task_manager.update_task(task_id, processed=processed_counter.get_value())
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
@@ -215,41 +193,18 @@ class Parser:
 
         return output_data
 
-    def _get_migu_playback_data(self, channel_date, fd):
+    def _get_migu_playback_data(self, category_name, channel_data, fd):
         date_str = datetime.now().strftime("%Y%m%d")
-        if Constants.cvt_exist(channel_date.name):
-            tv_name = Constants.get_cvt_name(channel_date.name)
-            self._get_migu_playback_data_cctv(channel_date.name, tv_name, date_str, fd)
-            return
+        # 过滤掉排除的频道
+        category_info = category_manager.get_category_object(channel_data.name, category_name)
+        if not category_manager.is_exclude(category_info, channel_data.name):
+            if Constants.cvt_exist(channel_data.name):
+                tv_name = Constants.get_cvt_name(channel_data.name)
+                self._get_migu_playback_data_cctv(channel_data.name, tv_name, date_str, fd)
+            else:
+                self._get_migu_playback_data_others(channel_data, date_str, fd)
 
-        # 非CCTV的其他频道
-        fetch_url = f"https://program-sc.miguvideo.com/live/v2/tv-programs-data/{channel_date.pid}/{date_str}"
-        try:
-            resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
-            resp.raise_for_status()
-            playback_data = (
-                resp.json().get("body", {}).get("program")[0].get("content", [])
-            )
-            if playback_data:
-                tvg_id = category_manager.get_channel_id(channel_date.name)
-                fd.write(
-                    f'    <channel id="{tvg_id}">\n'
-                    f'        <display-name lang="zh">{channel_date.name}</display-name>\n'
-                    "    </channel>\n"
-                )
-                for data in playback_data:
-                    st_str = ms2time_str(data.get("startTime"))
-                    et_str = ms2time_str(data.get("endTime"))
-                    cont_name = get_xml_cvt_string(data.get("contName"))
-                    fd.write(
-                        f'    <programme channel="{channel_date.name}" start="{st_str} +0800" stop="{et_str} +0800">\n'
-                        f'        <title lang="zh">{cont_name}</title>\n'
-                        "    </programme>\n"
-                    )
-        except Exception as e:
-            logger.error(f"get migu playback data failed: {e}")
-
-    def _get_migu_playback_data_cctv(self, name: str, date_str: str, tv_name: str, fd):
+    def _get_migu_playback_data_cctv(self, name, date_str, tv_name, fd):
         fetch_url = (
             f"https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d={date_str}&c={tv_name}"
         )
@@ -275,6 +230,33 @@ class Parser:
                     )
         except Exception as e:
             logger.error(f"get migu playback data for CCTV failed: {e}")
+
+    def _get_migu_playback_data_others(self, channel_data, date_str, fd):
+        fetch_url = f"https://program-sc.miguvideo.com/live/v2/tv-programs-data/{channel_data.pid}/{date_str}"
+        try:
+            resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            playback_data = (
+                resp.json().get("body", {}).get("program")[0].get("content", [])
+            )
+            if playback_data:
+                tvg_id = category_manager.get_channel_id(channel_data.name)
+                fd.write(
+                    f'    <channel id="{tvg_id}">\n'
+                    f'        <display-name lang="zh">{channel_data.name}</display-name>\n'
+                    "    </channel>\n"
+                )
+                for data in playback_data:
+                    st_str = ms2time_str(data.get("startTime"))
+                    et_str = ms2time_str(data.get("endTime"))
+                    cont_name = get_xml_cvt_string(data.get("contName"))
+                    fd.write(
+                        f'    <programme channel="{channel_data.name}" start="{st_str} +0800" stop="{et_str} +0800">\n'
+                        f'        <title lang="zh">{cont_name}</title>\n'
+                        "    </programme>\n"
+                    )
+        except Exception as e:
+            logger.error(f"get migu playback data failed: {e}")
 
     def _get_migu_cate_data(self, pid: str) -> List[MiguDataInfo]:
         migu_data_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
@@ -324,7 +306,7 @@ class Parser:
         return url
 
     def _getAndroidURL720p(
-        self, pid: str, enableHDR: bool = True, enableH265: bool = True
+            self, pid: str, enableHDR: bool = True, enableH265: bool = True
     ):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"

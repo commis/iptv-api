@@ -337,7 +337,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 task_manager.update_task(task_id, status="running")
 
                 parser = Parser()
-                parser.load_remote_migu(task_id, request.epg.file)
+                parser.load_remote_url_migu(task_id, request.epg.file)
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 
