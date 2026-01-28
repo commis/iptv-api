@@ -194,15 +194,18 @@ class Parser:
         return output_data
 
     def _get_migu_playback_data(self, category_name, channel_data, fd):
-        date_str = datetime.now().strftime("%Y%m%d")
-        # 过滤掉排除的频道
-        category_info = category_manager.get_category_object(channel_data.name, category_name)
-        if not category_manager.is_exclude(category_info, channel_data.name):
-            if Constants.cvt_exist(channel_data.name):
-                tv_name = Constants.get_cvt_name(channel_data.name)
-                self._get_migu_playback_data_cctv(channel_data.name, tv_name, date_str, fd)
-            else:
-                self._get_migu_playback_data_others(channel_data, date_str, fd)
+        try:
+            date_str = datetime.now().strftime("%Y%m%d")
+            # 过滤掉排除的频道
+            category_info = category_manager.get_category_object(channel_data.name, category_name)
+            if category_info and not category_manager.is_exclude(category_info, channel_data.name):
+                if Constants.cvt_exist(channel_data.name):
+                    tv_name = Constants.get_cvt_name(channel_data.name)
+                    self._get_migu_playback_data_cctv(channel_data.name, date_str, tv_name, fd)
+                else:
+                    self._get_migu_playback_data_others(channel_data, date_str, fd)
+        except Exception as e:
+            logger.error(f"fetch migu playback data failed: {e}")
 
     def _get_migu_playback_data_cctv(self, name, date_str, tv_name, fd):
         fetch_url = (
@@ -225,7 +228,7 @@ class Parser:
                     et_str = seconds_to_time_str(data.get("et"))
                     cont_name = get_xml_cvt_string(data.get("t"))
                     fd.write(
-                        f'    <programme channel="{name}" start="{st_str} +0800" stop="{et_str} +0800">\n'
+                        f'    <programme channel="{tvg_id}" start="{st_str} +0800" stop="{et_str} +0800">\n'
                         f'        <title lang="zh">{cont_name}</title>\n'
                         "    </programme>\n"
                     )
@@ -233,8 +236,8 @@ class Parser:
             logger.error(f"get migu playback data for CCTV failed: {e}")
 
     def _get_migu_playback_data_others(self, channel_data, date_str, fd):
-        fetch_url = f"https://program-sc.miguvideo.com/live/v2/tv-programs-data/{channel_data.pid}/{date_str}"
         try:
+            fetch_url = f"https://program-sc.miguvideo.com/live/v2/tv-programs-data/{channel_data.pid}/{date_str}"
             resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
             resp.raise_for_status()
             playback_data = (
