@@ -214,9 +214,10 @@ class Parser:
             playback_data = resp.json().get(tv_name, {}).get("program", {})
             if playback_data:
                 tvg_id = category_manager.get_channel_id(name)
+                display_name = category_manager.get_channel(name)
                 fd.write(
                     f'    <channel id="{tvg_id}">\n'
-                    f'        <display-name lang="zh">{name}</display-name>\n'
+                    f'        <display-name lang="zh">{display_name}</display-name>\n'
                     "    </channel>\n"
                 )
                 for data in playback_data:
@@ -241,9 +242,10 @@ class Parser:
             )
             if playback_data:
                 tvg_id = category_manager.get_channel_id(channel_data.name)
+                display_name = category_manager.get_channel(channel_data.name)
                 fd.write(
                     f'    <channel id="{tvg_id}">\n'
-                    f'        <display-name lang="zh">{channel_data.name}</display-name>\n'
+                    f'        <display-name lang="zh">{display_name}</display-name>\n'
                     "    </channel>\n"
                 )
                 for data in playback_data:
@@ -251,7 +253,7 @@ class Parser:
                     et_str = ms2time_str(data.get("endTime"))
                     cont_name = get_xml_cvt_string(data.get("contName"))
                     fd.write(
-                        f'    <programme channel="{channel_data.name}" start="{st_str} +0800" stop="{et_str} +0800">\n'
+                        f'    <programme channel="{tvg_id}" start="{st_str} +0800" stop="{et_str} +0800">\n'
                         f'        <title lang="zh">{cont_name}</title>\n'
                         "    </programme>\n"
                     )
