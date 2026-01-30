@@ -1,4 +1,5 @@
 # constants.py
+import os
 import re
 
 
@@ -39,6 +40,9 @@ class Constants:
         "CCTV4欧洲": "cctveurope",
         "CCTV4美洲": "cctvamerica",
     }
+
+    MIGU_USERID = os.getenv("muserId")
+    MIGU_TOKEN = os.getenv("mtoken")
 
     @classmethod
     def get_cvt_name(cls, key: str):
