@@ -160,16 +160,16 @@ class Parser:
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
                 processed_counter = Counter()
-                # for cate in migu_cates:
-                data_list = self._get_migu_cate_data("0847b3f6c08a4ca28f85ba5701268424")
-                for data in data_list:
-                    cate_name = category_manager.get_category("卫视频道")
-                    tvg_id = category_manager.get_channel_id(data.name)
-                    channel_name = category_manager.get_channel(data.name)
-                    channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
-                    self._get_migu_playback_data(cate_name, data, f)
-                    processed_counter.increment()
-                task_manager.update_task(task_id, processed=processed_counter.get_value())
+                for cate in migu_cates:
+                    cate_name = category_manager.get_category(cate.name)
+                    data_list = self._get_migu_cate_data(cate.vid)
+                    for data in data_list:
+                        tvg_id = category_manager.get_channel_id(data.name)
+                        channel_name = category_manager.get_channel(data.name)
+                        channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
+                        self._get_migu_playback_data(cate_name, data, f)
+                        processed_counter.increment()
+                    task_manager.update_task(task_id, processed=processed_counter.get_value())
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
