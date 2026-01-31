@@ -20,6 +20,7 @@ logger = LoggerFactory.get_logger(__name__)
 
 class Parser:
     _live_url = "http://ak3721.top/tvbox/json/live.txt"
+    _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 
     @staticmethod
     def get_channel_data(text_data: str) -> list:
@@ -159,16 +160,16 @@ class Parser:
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
                 processed_counter = Counter()
-                for cate in migu_cates:
-                    data_list = self._get_migu_cate_data(cate.vid)
-                    for data in data_list:
-                        cate_name = category_manager.get_category(cate.name)
-                        tvg_id = category_manager.get_channel_id(data.name)
-                        channel_name = category_manager.get_channel(data.name)
-                        channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
-                        self._get_migu_playback_data(cate_name, data, f)
-                        processed_counter.increment()
-                    task_manager.update_task(task_id, processed=processed_counter.get_value())
+                # for cate in migu_cates:
+                data_list = self._get_migu_cate_data("0847b3f6c08a4ca28f85ba5701268424")
+                for data in data_list:
+                    cate_name = category_manager.get_category("卫视频道")
+                    tvg_id = category_manager.get_channel_id(data.name)
+                    channel_name = category_manager.get_channel(data.name)
+                    channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
+                    self._get_migu_playback_data(cate_name, data, f)
+                    processed_counter.increment()
+                task_manager.update_task(task_id, processed=processed_counter.get_value())
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
@@ -178,7 +179,7 @@ class Parser:
             logger.error(f"fetch migu data failed: {e}")
 
     def _migu_cate_list(self) -> List[MiguCateInfo]:
-        migu_cate_url = "https://program-sc.miguvideo.com/live/v2/tv-data/1ff892f2b5ab4a79be6e25b69d2f5d05"
+        migu_cate_url = self._migu_url + "1ff892f2b5ab4a79be6e25b69d2f5d05"
         response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
         response.raise_for_status()
         json_cate_data = response.json()
@@ -264,10 +265,9 @@ class Parser:
             logger.error(f"get migu playback data failed: {e}")
 
     def _get_migu_cate_data(self, pid: str) -> List[MiguDataInfo]:
-        migu_data_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
         output_data = []
         try:
-            migu_url = migu_data_url + pid
+            migu_url = self._migu_url + pid
             response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
             json_cate_data = response.json()
@@ -276,26 +276,24 @@ class Parser:
             data_list = body.get("dataList", [])
             for data in data_list:
                 pics = data.get("pics", [])
-                migu_data_info = MiguDataInfo(
-                    data.get("name"), data.get("pID"), pics.get("highResolutionH")
-                )
-                migu_play_url = self._get_migo_video_url(migu_data_info.pid)
-                migu_data_info.set_url(migu_play_url)
-                output_data.append(migu_data_info)
+                migu_data_info = MiguDataInfo(data.get("name"), data.get("pID"), pics.get("highResolutionH"))
+                migu_play_url = self._get_migo_video_url(migu_data_info.name, migu_data_info.pid)
+                if migu_play_url:
+                    migu_data_info.set_url(migu_play_url)
+                    output_data.append(migu_data_info)
             return output_data
         except Exception as e:
+            logger.error(f"get migu cate data failed: {e}")
             return output_data
 
-    def _get_migo_video_url(self, pid: str) -> str:
-        url = self._getAndroidURL720p(pid)
+    def _get_migo_video_url(self, pname, pid) -> str:
+        url = self._getAndroidURL720p(pname, pid)
         if not url:
             return url
 
         for retry in range(6):
             try:
-                resp = requests.get(
-                    url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT
-                )
+                resp = requests.get(url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT)
                 location = resp.headers.get("Location", "")
                 if not location:
                     continue
@@ -310,9 +308,7 @@ class Parser:
 
         return url
 
-    def _getAndroidURL720p(
-            self, pid: str, enableHDR: bool = True, enableH265: bool = True
-    ):
+    def _getAndroidURL720p(self, pname, pid, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"
         timestamp = str(round(time.time() * 1000))
@@ -322,6 +318,9 @@ class Parser:
             "TerminalId": "android",
             "X-UP-CLIENT-CHANNEL-ID": appVersionID,
         }
+        # if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
+        #     headers["UserId"] = Constants.MIGU_USERID
+        #     headers["UserToken"] = Constants.MIGU_TOKEN
 
         # 排除 CCTV5 和 CCTV5+
         exclude_pids = {"641886683", "641886773"}
@@ -347,23 +346,25 @@ class Parser:
         )
         full_url = baseURL + params
 
+        playUrl = ""
         try:
-            resp = requests.get(
-                full_url, headers=headers, timeout=Constants.REQUEST_TIMEOUT
-            )
+            resp = requests.get(full_url, headers=headers, timeout=Constants.REQUEST_TIMEOUT)
             resp.raise_for_status()
-            respBody = resp.json().get("body", {})
+            resp_json = resp.json()
+            respBody = resp_json.get("body", {})
         except Exception as e:
             logger.error("fetch video url failed: ", str(e))
-            return ""
+            return playUrl
 
-        url_info = respBody.get("urlInfo", {})
-        url = url_info.get("url", "")
-        if not url:
-            return ""
+        url_info = respBody.get("urlInfo")
+        if not (url_info and (playUrl := url_info.get("url"))):
+            logger.error(
+                f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]"
+            )
+            return playUrl
 
         pid = respBody.get("content", {}).get("contId", pid)
-        return self._getddCalcuURL720p(url, pid)
+        return self._getddCalcuURL720p(playUrl, pid)
 
     def _getddCalcuURL720p(self, puDataURL: str, programId: str) -> str:
         if puDataURL is None or programId is None:
