@@ -147,7 +147,7 @@ class Parser:
                 # 处理自建频道
                 self.load_remote_url_txt(self._txt_url)
                 self.load_remote_url_m3u(self._m3u_url, True)
-            channel_manager.sort()
+                channel_manager.sort()
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
 
@@ -177,7 +177,7 @@ class Parser:
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
             self.load_remote_url_txt(self._txt_url)
-            self.load_remote_url_m3u(self._m3u_url)
+            self.load_remote_url_m3u(self._m3u_url, True)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
