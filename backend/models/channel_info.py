@@ -65,7 +65,7 @@ class ChannelInfo:
             self.logo = logo
 
     def set_name(self, name: str):
-        self.name = name or f"频道-{self.id}"
+        self.name = name or f"{self.id}"
 
     def add_url(self, url: ChannelUrl):
         with self._lock:

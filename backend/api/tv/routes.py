@@ -60,7 +60,7 @@ class BatchCheckRequest(BaseModel):
     start: int = Field(1, ge=1, description="起始频道ID")
     size: int = Field(10, ge=1, le=1000, description="检查数量上限1000")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限50")
+    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限50")
 
 
 class EpgRequest(BaseModel):
@@ -130,6 +130,8 @@ def check_batch_channels(
             channel_manager.clear()
             task_manager.clear()
 
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+
         task_id = task_manager.create_task(
             url=request.url,
             total=request.size,
@@ -149,12 +151,10 @@ def check_batch_channels(
                 )
 
                 success_ids = channel_manager.channel_ids()
-                task.update(
-                    {
-                        "status": "completed",
-                        "result": {"success": success_count, "channels": success_ids},
-                    }
-                )
+                task.update({
+                    "status": "completed",
+                    "result": {"success": success_count, "channels": success_ids},
+                })
             except Exception as re:
                 logger.error(f"batch check failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))

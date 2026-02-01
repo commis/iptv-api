@@ -80,26 +80,26 @@ class ChannelChecker:
                 )
                 return False
 
-            # 第三阶段：TS验证
-            base_url = url_info.url.rsplit("/", 1)[0]
+            # # 第三阶段：TS验证
             ts_urls = self._extract_ts_urls(m3u8_content)
-            ts_valid, ts_reason, tested_urls = self._check_ts_availability(
-                ts_urls, base_url
-            )
-            if not ts_valid:
-                logger.debug(
-                    f"TS segments invalid for {channel_info.name} with {url_info.url}: {ts_reason}"
-                )
+            if not ts_urls:
                 return False
-
-            # 第四阶段：测速
-            url_info.set_speed(self._benchmark_speed(tested_urls))
+            # base_url = url_info.url.rsplit("/", 1)[0]
+            # ts_valid, ts_reason, tested_urls = self._check_ts_availability(
+            #     ts_urls, base_url
+            # )
+            # if not ts_valid:
+            #     logger.debug(
+            #         f"TS segments invalid for {channel_info.name} with {url_info.url}: {ts_reason}"
+            #     )
+            #     return False
+            #
+            # # 第四阶段：测速
+            # url_info.set_speed(self._benchmark_speed(tested_urls))
 
             # 第五阶段：元数据提取
             if not channel_info.name:
-                channel_info.set_name(
-                    self._extract_channel_name(m3u8_content, url_info.url)
-                )
+                channel_info.set_name(self._extract_channel_name(m3u8_content, url_info.url))
 
         return True
 
@@ -261,9 +261,7 @@ class ChannelChecker:
                 return channel_name
 
             # 方案2: 从Content-Disposition头提取 - 增加超时控制
-            channel_name = self._extract_from_content_disposition(
-                request_url, timeout=2
-            )
+            channel_name = self._extract_from_content_disposition(request_url, timeout=2)
             if channel_name:
                 return channel_name
 
