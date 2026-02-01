@@ -19,7 +19,8 @@ logger = LoggerFactory.get_logger(__name__)
 
 
 class Parser:
-    _live_url = "http://ak3721.top/tvbox/json/live.txt"
+    _txt_url = "http://ak3721.top/tv/json/template.txt"
+    _m3u_url = "http://ak3721.top/tv/json/template.m3u"
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 
     @staticmethod
@@ -143,7 +144,8 @@ class Parser:
                     )
 
             # 处理自建频道
-            self.load_remote_url_txt(self._live_url)
+            self.load_remote_url_txt(self._txt_url)
+            self.load_remote_url_m3u(self._m3u_url)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
@@ -173,7 +175,8 @@ class Parser:
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
-            self.load_remote_url_txt(self._live_url)
+            self.load_remote_url_txt(self._txt_url)
+            self.load_remote_url_m3u(self._m3u_url)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
