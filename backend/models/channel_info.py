@@ -53,7 +53,7 @@ class ChannelInfo:
     """
 
     def __init__(self, id: str = "", name: str = None):
-        self.id = id if id != name else ""
+        self.id = id
         self.name = name
         self.logo = None
         self.title = "其他"
@@ -91,7 +91,7 @@ class ChannelInfo:
 
         logo_url = f"{domain}/" if (domain and change_logo) else ""
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
-        tvg_name = f'tvg-name="{self.name}" ' if self.logo else ""
+        tvg_name = f'tvg-name="{self.name}" ' if self.logo and self.id == "" else ""
         tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if (self.logo and show_logo) else ""
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'

@@ -6,6 +6,7 @@ from typing import Dict
 from core.singleton import singleton
 from models.channel_info import ChannelList, ChannelInfo
 from services import category_manager
+from utils.sort_util import StringSorter
 
 # 预编译正则，提升性能（推荐写法）
 PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
@@ -65,8 +66,7 @@ class ChannelBaseModel:
     def epg(self):
         return self._epg
 
-    def set_epg(
-            self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+    def set_epg(self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
         self._epg = EpgBaseModel(url, source, domain, show_logo, rename_cid)
 
     def clear(self):
@@ -86,6 +86,11 @@ class ChannelBaseModel:
                 )
             )
 
+    def sort_by_cate_name(self):
+        with self._lock:
+            sorted_keys = StringSorter.mixed_sort(list(self._channelGroups.keys()))
+            self._channelGroups = {key: self._channelGroups[key] for key in sorted_keys}
+
     def total_count(self):
         with self._lock:
             # 对于忽略处理的分类，不计算总数
@@ -95,9 +100,7 @@ class ChannelBaseModel:
                 if not category_manager.is_ignore(group_name)
             )
 
-    def add_channel(
-            self, name: str, channel_name, channel_url, id: str = "", logo=None
-    ):
+    def add_channel(self, name: str, channel_name, channel_url, id: str = "", logo=None):
         # 添加频道信息，自动归类分类信息，自动过滤排除频道
         with self._lock:
             category_info = category_manager.get_category_object(channel_name, name)
@@ -111,6 +114,14 @@ class ChannelBaseModel:
                 channel_list = self._channelGroups[category_name]
                 if not category_manager.is_exclude(category_info, channel_name):
                     channel_list.add_channel(channel_name, channel_url, id, logo)
+
+    def add_channel_data(self, name: str, channel_name, channel_url, id, logo):
+        # 添加频道信息，自动归类分类信息，自动过滤排除频道
+        with self._lock:
+            if name not in self._channelGroups:
+                self._channelGroups[name] = ChannelList()
+            channel_list = self._channelGroups[name]
+            channel_list.add_channel(channel_name, channel_url, id, logo)
 
     def add_channel_info(self, name, channel_info: ChannelInfo):
         if not name:

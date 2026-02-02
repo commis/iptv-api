@@ -99,6 +99,8 @@ class ChannelQuery(BaseModel):
 def check_single_channel(request: SingleCheckRequest) -> Response:
     """检查单个电视频道并返回解析结果"""
     try:
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+
         url_info = ChannelUrl(request.url)
         channel_info = ChannelInfo(request.extract_id(request.url))
         channel_info.add_url(url_info)
@@ -397,6 +399,11 @@ def convert_txt_to_m3u(
     将TXT格式的直播源数据转换为M3U格式
     """
     try:
+        if not txt_data.strip():
+            handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
+
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+
         converter = LiveConverter()
         result = converter.txt_to_m3u(txt_data)
         return Response(content=result, media_type="text/plain")
@@ -418,9 +425,9 @@ def convert_m3u_to_txt(
     """
     try:
         if not m3u_data.strip():
-            handle_exception(
-                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
-            )
+            handle_exception("invalidate input: empty m3u text", status.HTTP_400_BAD_REQUEST)
+
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
 
         converter = LiveConverter()
         result = converter.m3u_to_txt(m3u_data)
@@ -444,9 +451,9 @@ def merge_live_sources(
     """
     try:
         if not txt_data.strip():
-            handle_exception(
-                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
-            )
+            handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
+
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
 
         live_data = Parser.get_channel_data(txt_data)
         merger = LiveMerger(live_data)
@@ -476,13 +483,13 @@ def check_live_sources(
     """
     try:
         if not txt_data:
-            handle_exception(
-                "invalidate input: empty text", status.HTTP_400_BAD_REQUEST
-            )
+            handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
 
         if is_clear:
             channel_manager.clear()
             task_manager.clear()
+
+        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
 
         Parser.load_channel_txt(txt_data)
         total_count = channel_manager.total_count()
@@ -519,3 +526,49 @@ def check_live_sources(
         return TaskResponse(data={"task_id": task_id})
     except Exception as e:
         handle_exception(f"check live sources failed: {str(e)}")
+
+
+@router.post("/sort/txt", summary="TXT格式按分类进行排序", response_model=str)
+def sort_txt_content(
+        txt_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待排序的TXT格式直播源数据",
+        )
+):
+    """
+    将TXT格式按分类名称进行排序
+    """
+    try:
+        if not txt_data.strip():
+            handle_exception("invalidate input: empty txt content", status.HTTP_400_BAD_REQUEST)
+
+        converter = LiveConverter()
+        result = converter.sort_txt(txt_data)
+        return Response(content=result, media_type="text/plain")
+    except Exception as e:
+        handle_exception(f"sort txt failed: {str(e)}")
+
+
+@router.post("/sort/m3u", summary="M3U格式按分类进行排序", response_model=str)
+def sort_m3u_content(
+        m3u_data: str = Body(
+            ...,
+            media_type="text/plain",
+            min_length=1,
+            description="待排序的M3U格式直播源数据",
+        )
+):
+    """
+    将M3U格式按分类名称进行排序
+    """
+    try:
+        if not m3u_data.strip():
+            handle_exception("invalidate input: empty m3u content", status.HTTP_400_BAD_REQUEST)
+
+        converter = LiveConverter()
+        result = converter.sort_m3u(m3u_data)
+        return Response(content=result, media_type="text/plain")
+    except Exception as e:
+        handle_exception(f"sort m3u failed: {str(e)}")

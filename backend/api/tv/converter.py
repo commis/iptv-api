@@ -13,6 +13,7 @@ class LiveConverter:
 
     def __init__(self):
         self._channel_model = ChannelBaseModel()
+        self._channel_model.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
 
     def m3u_to_txt(self, m3u_data: str) -> str:
         try:
@@ -30,10 +31,27 @@ class LiveConverter:
             logger.exception(f"Failed to parse txt data: {e}")
             return ""
 
+    def sort_m3u(self, m3u_data: str) -> str:
+        try:
+            self._parse_m3u_channels(m3u_data)
+            return self._channel_model.to_m3u_string()
+        except Exception as e:
+            logger.exception(f"Failed to parse m3u data: {e}")
+            return ""
+
+    def sort_txt(self, txt_data: str) -> str:
+        try:
+            self._parse_txt_channels(txt_data)
+            return self._channel_model.to_txt_string()
+        except Exception as e:
+            logger.exception(f"Failed to parse m3u data: {e}")
+            return ""
+
     def _parse_m3u_channels(self, m3u_data: str):
         channel_name = None
         channel_id = 0
         group_title = ''
+        channel_logo = ""
 
         for line in (line.strip() for line in m3u_data.splitlines() if line.strip()):
             if line.startswith('#EXTM3U'):
@@ -44,17 +62,21 @@ class LiveConverter:
                 params, name = LiveConverter.parse_extinf_params(tag_content)
                 channel_name = category_manager.get_channel(name)
                 try:
-                    channel_id = params.get('id') if "id" in params else '0'
+                    channel_id = params.get('id') if "id" in params else ''
                 except ValueError:
                     channel_id = ''
                 group_title = params.get('title', '')
+                channel_logo = params.get('logo', '')
 
             elif line.startswith(('http:', 'https:')):
-                self._channel_model.add_channel(
+                self._channel_model.add_channel_data(
                     name=group_title,
                     channel_name=channel_name,
                     channel_url=line,
-                    id=channel_id)
+                    id=channel_id,
+                    logo=channel_logo)
+
+        self._channel_model.sort_by_cate_name()
 
     @staticmethod
     def parse_extinf_params(content: str) -> Tuple[Dict, str]:
@@ -84,3 +106,4 @@ class LiveConverter:
 
             name, url = line.split(',', 1)
             self._channel_model.add_channel(name=group_title, channel_name=name, channel_url=url)
+        self._channel_model.sort()

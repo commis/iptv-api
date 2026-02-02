@@ -70,6 +70,12 @@ class TestMixedSortKey(unittest.TestCase):
         ]
         self.assertEqual(expected, StringSorter.mixed_sort(lst))
 
+    def test_cate_name(self):
+        """测试数字和汉字组合：自然排序（而非字符串字典序）"""
+        lst = ["010北京", "020广东", "001央广", "000境外"]
+        sorted_lst = StringSorter.mixed_sort(lst)
+        self.assertEqual(["000境外", "001央广", "010北京", "020广东"], sorted_lst)
+
 
 if __name__ == "__main__":
     # 运行所有测试，verbosity=2 显示详细测试结果
