@@ -13,7 +13,7 @@ class LiveConverter:
 
     def __init__(self):
         self._channel_model = ChannelBaseModel()
-        self._channel_model.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        self._channel_model.set_epg(url="", source="", domain="", show_logo=True, rename_cid=False)
 
     def m3u_to_txt(self, m3u_data: str) -> str:
         try:
