@@ -95,6 +95,20 @@ class ChannelQuery(BaseModel):
         return values
 
 
+@router.post("/clear", summary="清空内存数据", response_class=Response)
+def clean_channel_data() -> Response:
+    try:
+        channel_manager.clear()
+        task_manager.clear()
+        return Response(content="数据已经情空", media_type="text/plain")
+
+    except ValueError as ve:
+        handle_exception(str(ve))
+    except Exception as e:
+        logger.error(f"clean channel data failed: {str(e)}", exc_info=True)
+        handle_exception("clean channel data failed")
+
+
 @router.post("/single", summary="检查单个频道", response_class=Response)
 def check_single_channel(request: SingleCheckRequest) -> Response:
     """检查单个电视频道并返回解析结果"""
