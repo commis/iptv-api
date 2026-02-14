@@ -93,6 +93,11 @@ class ChannelInfo:
         tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
         tvg_name = f'tvg-name="{self.name}" ' if self.logo and self.id == "" else ""
         tvg_logo = f'tvg-logo="{logo_url}{self.logo}" ' if (self.logo and show_logo) else ""
+
+        # 特殊场景下输出
+        if tvg_id == "" and tvg_name == "" and tvg_logo == "":
+            tvg_id = f'tvg-id="{self.name}" '
+
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
