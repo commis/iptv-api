@@ -1,11 +1,12 @@
 import concurrent
+import json
 import os
 import re
+import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from typing import Tuple
 from urllib.parse import urljoin
 
 import m3u8
@@ -84,17 +85,9 @@ class ChannelChecker:
             ts_urls = self._extract_ts_urls(m3u8_content)
             if not ts_urls:
                 return False
-            # base_url = url_info.url.rsplit("/", 1)[0]
-            # ts_valid, ts_reason, tested_urls = self._check_ts_availability(
-            #     ts_urls, base_url
-            # )
-            # if not ts_valid:
-            #     logger.debug(
-            #         f"TS segments invalid for {channel_info.name} with {url_info.url}: {ts_reason}"
-            #     )
-            #     return False
-            #
-            # # 第四阶段：测速
+
+            # 第四阶段：测速及分辨率
+            url_info.set_resolution(self.get_resolution_ffprobe(url_info.url))
             # url_info.set_speed(self._benchmark_speed(tested_urls))
 
             # 第五阶段：元数据提取
@@ -167,88 +160,37 @@ class ChannelChecker:
 
         return True, "结构完整"
 
-    def _check_ts_availability(self, ts_urls, base_url):
-        """带超时和并发的TS片段检查"""
-        success = Counter()
-        max_test_count = min(len(ts_urls), Constants.TS_SEGMENT_TEST_COUNT)
-
-        # 使用线程池并发测试TS片段
-        with ThreadPoolExecutor(max_workers=max_test_count) as executor:
-            futures = []
-            tested_urls = []
-
-            for ts in ts_urls[:max_test_count]:
-                full_url = (
-                    ts
-                    if ts.startswith("http")
-                    else urljoin(
-                        base_url if base_url.endswith("/") else base_url + "/", ts
-                    )
-                )
-                futures.append(
-                    executor.submit(
-                        self._validate_ts, full_url, timeout=Constants.REQUEST_TIMEOUT
-                    )
-                )
-
-            # 带超时的结果处理
-            for future in as_completed(futures):
-                try:
-                    ts_url, is_valid = future.result(timeout=30)
-                    if is_valid:
-                        success.increment()
-                        tested_urls.append(ts_url)
-                except Exception as e:
-                    logger.debug(f"TS check error: {e}")
-
-        if success.get_value() == 0:
-            return False, "all ts segments are not available", []
-        return (
-            True,
-            f"{success.get_value()}/{max_test_count} segments are available.",
-            tested_urls,
-        )
-
-    def _validate_ts(self, url, timeout) -> Tuple[str, bool]:
-        """带超时的TS片段验证"""
-        try:
-            # 只获取头部信息，减少数据传输
-            response = requests.head(
-                url, timeout=(1, timeout - 1), allow_redirects=True
-            )
-            response.raise_for_status()
-            return url, response.status_code == 200
-        except Exception as e:
-            logger.debug(f"_validate_ts error: {e}")
-            return url, False
-
     def _extract_ts_urls(self, m3u8_content):
         m3u8_obj = m3u8.loads(m3u8_content)
         return m3u8_obj.segments.uri
 
-    def _benchmark_speed(self, ts_urls, timeout=Constants.REQUEST_TIMEOUT):
-        """带超时的TS片段测速"""
-        total_size = 0
-        total_time = 0
+    def get_resolution_ffprobe(self, url: str, headers: dict = None, timeout: int = 10) -> str:
+        resolution = ''
+        try:
+            headers_str = ''.join(f'{k}: {v}\r\n' for k, v in headers.items()) if headers else ''
+            probe_args = [
+                'ffprobe',
+                '-v', 'error',
+                '-headers', headers_str,
+                '-connect_timeout', '5000',
+                '-rw_timeout', '5000000',
+                '-probesize', '32768',
+                '-analyzeduration', '1000000',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height',
+                "-of", 'json',
+                url
+            ]
 
-        session = requests.Session()
-        for url in ts_urls:
-            try:
-                with session.get(url, stream=True, timeout=timeout) as res:
-                    res.raise_for_status()
-                    # 精确读取前512KB数据并计时
-                    start = time.time()
-                    data_chunks = res.iter_content(1024)
-                    size = sum(len(chunk) for chunk, _ in zip(data_chunks, range(512)))
-                    elapsed = time.time() - start
+            result = subprocess.run(probe_args, capture_output=True, text=True, timeout=timeout, check=True)
+            data = json.loads(result.stdout)
+            if "streams" in data and len(data["streams"]) > 0:
+                video_stream = data["streams"][0]
+                resolution = f"{video_stream['width']}*{video_stream['height']}"
+        except Exception as e:
+            pass
 
-                    total_size += size
-                    total_time += elapsed
-            except:
-                continue
-
-        session.close()
-        return 0 if total_time == 0 else (total_size / total_time) / 1024
+        return resolution
 
     def _extract_channel_name(self, m3u8_content, url, timeout=3):
         """带超时的频道名称提取"""
@@ -342,7 +284,7 @@ class ChannelChecker:
 
         return None
 
-    def check_batch(self, threads, task_status, check_sub_m3u8) -> int:
+    def check_batch(self, threads, task_status, check_m3u8, check_resolution) -> int:
         task_status_lock = threading.Lock()
         success_count = Counter()
         processed_count = Counter()
@@ -354,19 +296,20 @@ class ChannelChecker:
                 url_info = ChannelUrl(self._url.format(i=index))
                 tmp_channel_info = ChannelInfo(id=str(index))
                 tmp_channel_info.add_url(url_info)
-                yield tmp_channel_info, url_info, check_sub_m3u8
+                yield tmp_channel_info, url_info, check_m3u8
 
         def check_task(args):
-            tmp_channel_info, url_info, process_sub_m3u8 = args
+            tmp_channel_info, url_info, process_m3u8 = args
             try:
-                return (
-                    self.check_single_with_timeout(
-                        channel_info=tmp_channel_info,
-                        url_info=url_info,
-                        check_sub_m3u8=process_sub_m3u8,
-                    ),
-                    tmp_channel_info,
+                check_result = self.check_single_with_timeout(
+                    channel_info=tmp_channel_info,
+                    url_info=url_info,
+                    check_sub_m3u8=process_m3u8,
                 )
+                if not url_info.valid_resolution(check_resolution):
+                    tmp_channel_info.remove_url(url_info)
+
+                return check_result, tmp_channel_info
             except TimeoutException as te:
                 logger.warning(f"Timeout checking {url_info.url}: {te}")
                 return False, None
@@ -382,7 +325,7 @@ class ChannelChecker:
             # 使用chunksize提高I/O密集型任务效率
             results = executor.map(check_task, task_generator(), chunksize=max(1, total_count // 10))
             for result, channel_info in results:
-                if result and channel_info:
+                if result and channel_info and channel_info.valid():
                     channel_manager.add_channel_info(None, channel_info)
                     success_count.increment()
 
@@ -413,7 +356,7 @@ class ChannelChecker:
                 if check_result:
                     success_counter.increment()
                 else:
-                    channel_info.remove_invalid_url(url_info)
+                    channel_info.remove_url(url_info)
             finally:
                 with task_status_lock:
                     processed_counter.increment()

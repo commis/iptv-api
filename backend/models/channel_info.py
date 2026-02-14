@@ -26,7 +26,7 @@ class ChannelUrl:
             cls._instances[url] = instance
             return instance
 
-    def __init__(self, url: str, speed=0, resolution=None):
+    def __init__(self, url: str, speed=0, resolution=''):
         self.url = url
         self.speed = speed  # 单位：KB/s
         self.resolution = resolution
@@ -39,6 +39,11 @@ class ChannelUrl:
 
     def set_resolution(self, resolution):
         self.resolution = resolution
+
+    def valid_resolution(self, resolution):
+        if self.resolution == resolution:
+            return True
+        return False
 
     def __eq__(self, other):
         return self.url == other.url
@@ -67,15 +72,19 @@ class ChannelInfo:
     def set_name(self, name: str):
         self.name = name or f"{self.id}"
 
-    def add_url(self, url: ChannelUrl):
-        with self._lock:
-            self.urls.add(url)
-
     def get_urls(self):
         with self._lock:
             return self.urls
 
-    def remove_invalid_url(self, url_info: ChannelUrl):
+    def valid(self):
+        with self._lock:
+            return len(self.urls) >= 1
+
+    def add_url(self, url: ChannelUrl):
+        with self._lock:
+            self.urls.add(url)
+
+    def remove_url(self, url_info: ChannelUrl):
         with self._lock:
             self.urls.discard(url_info)
 

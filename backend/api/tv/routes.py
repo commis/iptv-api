@@ -59,6 +59,7 @@ class BatchCheckRequest(BaseModel):
     url: str = Field(..., description="包含{i}占位符的基础URL")
     start: int = Field(1, ge=1, description="起始频道ID")
     size: int = Field(10, ge=1, le=1000, description="检查数量上限1000")
+    resolution: Optional[str] = Field("1920*1080", description="过滤掉指定分辨率数据")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
     thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限50")
 
@@ -160,12 +161,13 @@ def check_batch_channels(
             try:
                 task_manager.update_task(task_id, status="running")
                 task = task_manager.get_task(task_id)
-
                 checker = ChannelChecker(request.url, request.start, request.size)
                 success_count = checker.check_batch(
-                    threads=request.thread_size, task_status=task, check_sub_m3u8=True
+                    threads=request.thread_size,
+                    task_status=task,
+                    check_m3u8=True,
+                    check_resolution=request.resolution
                 )
-
                 success_ids = channel_manager.channel_ids()
                 task.update({
                     "status": "completed",
@@ -490,7 +492,7 @@ def check_live_sources(
             description="待合并的TXT格式直播源数据",
         ),
         is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
-        thread_size: Optional[int] = Query(20, ge=2, le=64, description="并发线程数上限64"),
+        thread_size: Optional[int] = Query(20, ge=1, le=64, description="并发线程数上限64"),
 ):
     """
     检测TXT格式直播源有效性

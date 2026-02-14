@@ -32,12 +32,15 @@ class CreateApplication:
     def start_server(self):
         import __main__ as main
         module_name = os.path.basename(main.__file__).replace('.py', '')
-        uvicorn.run(
-            f"{module_name}:app",
-            host="0.0.0.0",
-            port=3000,
-            workers=1
-        )
+        try:
+            uvicorn.run(
+                f"{module_name}:app",
+                host="0.0.0.0",
+                port=3000,
+                workers=1
+            )
+        except Exception as e:
+            pass
 
 
 logger.info(f"project root: {os.getcwd()}")
