@@ -81,8 +81,9 @@ class UpdateLiveRequest(BaseModel):
     output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
     url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
+    rate_type: Optional[int] = Field(default=3, description="分辨率，仅在Migu视频有效[2:标清,3:高清,4:蓝光,7:原画,9:4k]")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=2, le=64, description="并发线程数上限64")
+    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限64")
     low_limit: Optional[int] = Field(5, ge=5, le=300, description="自动更新频道数量下限")
 
 
@@ -353,7 +354,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 task_manager.update_task(task_id, status="running")
 
                 parser = Parser()
-                parser.load_remote_url_migu(task_id, request.epg.file)
+                parser.load_remote_url_migu(task_id, request.epg.file, request.rate_type)
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 

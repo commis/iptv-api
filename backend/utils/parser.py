@@ -151,7 +151,7 @@ class Parser:
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
 
-    def load_remote_url_migu(self, task_id, epg_file):
+    def load_remote_url_migu(self, task_id, epg_file, rate_type):
         try:
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
@@ -165,7 +165,7 @@ class Parser:
                 processed_counter = Counter()
                 for cate in migu_cates:
                     cate_name = category_manager.get_category(cate.name)
-                    data_list = self._get_migu_cate_data(cate.vid)
+                    data_list = self._get_migu_cate_data(cate.vid, rate_type)
                     for data in data_list:
                         tvg_id = category_manager.get_channel_id(data.name)
                         channel_name = category_manager.get_channel(data.name)
@@ -268,7 +268,7 @@ class Parser:
         except Exception as e:
             logger.error(f"get migu playback data failed: {e}")
 
-    def _get_migu_cate_data(self, pid: str) -> List[MiguDataInfo]:
+    def _get_migu_cate_data(self, pid: str, rate_type: int) -> List[MiguDataInfo]:
         output_data = []
         try:
             migu_url = self._migu_url + pid
@@ -281,7 +281,7 @@ class Parser:
             for data in data_list:
                 pics = data.get("pics", [])
                 migu_data_info = MiguDataInfo(data.get("name"), data.get("pID"), pics.get("highResolutionH"))
-                migu_play_url = self._get_migo_video_url(migu_data_info.name, migu_data_info.pid)
+                migu_play_url = self._get_migo_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
                 if migu_play_url:
                     migu_data_info.set_url(migu_play_url)
                     output_data.append(migu_data_info)
@@ -290,8 +290,8 @@ class Parser:
             logger.error(f"get migu cate data failed: {e}")
             return output_data
 
-    def _get_migo_video_url(self, pname, pid) -> str:
-        url = self._getAndroidURL720p(pname, pid)
+    def _get_migo_video_url(self, pname, pid, rate_type) -> str:
+        url = self._getAndroidURL720p(pname, pid, rate_type)
         if not url:
             return url
 
@@ -312,7 +312,7 @@ class Parser:
 
         return url
 
-    def _getAndroidURL720p(self, pname, pid, enableHDR: bool = True, enableH265: bool = True):
+    def _getAndroidURL720p(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"
         timestamp = str(round(time.time() * 1000))
@@ -338,14 +338,12 @@ class Parser:
         suffix = f"2cac4f2c6c3346a5b34e085725ef7e33migu{salt[:4]}"
         sign = getStringMD5(md5 + suffix)
 
-        # 2: 标清, 3: 高清, 4: 蓝光, 7: 原画, 9: 4k
-        rateType = 3
         enableHDRStr = "&4kvivid=true&2Kvivid=true&vivid=2" if enableHDR else ""
         enableH265Str = "&h265N=true" if enableH265 else ""
 
         baseURL = "https://play.miguvideo.com/playurl/v1/play/playurl"
         params = (
-            f"?sign={sign}&rateType={rateType}&contId={pid}&timestamp={timestamp}"
+            f"?sign={sign}&rateType={rate_type}&contId={pid}&timestamp={timestamp}"
             f"&salt={salt}&flvEnable=true&super4k=true{enableH265Str}{enableHDRStr}"
         )
         full_url = baseURL + params
