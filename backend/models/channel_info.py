@@ -89,8 +89,9 @@ class ChannelInfo:
             self.urls.discard(url_info)
 
     def get_txt(self):
+        tvg_id = f"{self.id}" if self.id != "" else f"{self.name}"
         return "\n".join(
-            f"{self.name},{url.url}"
+            f"{tvg_id},{url.url}"
             for url in sorted(self.urls, key=lambda url: url.speed)
         )
 

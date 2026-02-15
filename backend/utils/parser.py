@@ -97,7 +97,7 @@ class Parser:
                     subgenre, url = subgenre.strip(), url.strip()
                     channel_name = category_manager.get_channel(subgenre)
                     if url:
-                        channel_manager.add_channel(category_name, channel_name, url)
+                        channel_manager.add_channel(category_name, channel_name, url, subgenre)
                 except ValueError:
                     continue
 

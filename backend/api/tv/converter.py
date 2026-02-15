@@ -104,6 +104,7 @@ class LiveConverter:
                 group_title = line[:-8].strip()
                 continue
 
-            name, url = line.split(',', 1)
-            self._channel_model.add_channel(name=group_title, channel_name=name, channel_url=url)
+            channel_id, url = line.split(',', 1)
+            name = category_manager.get_channel(channel_id)
+            self._channel_model.add_channel(name=group_title, channel_name=name, channel_url=url, id=channel_id)
         self._channel_model.sort()
