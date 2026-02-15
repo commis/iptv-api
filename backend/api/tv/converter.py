@@ -95,7 +95,7 @@ class LiveConverter:
         return params, name
 
     def _parse_txt_channels(self, txt_data: str):
-        group_title = '其他'
+        group_title = '其他频道'
         for line in txt_data.strip().split('\n'):
             line = line.strip()
             if not line:

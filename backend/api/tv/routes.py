@@ -121,9 +121,7 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
         channel_info.add_url(url_info)
 
         checker = ChannelChecker(request.url)
-        check_result = checker.check_single_with_timeout(
-            channel_info, url_info, check_sub_m3u8=True
-        )
+        check_result = checker.check_single_with_timeout(channel_info, url_info, check_m3u8=True)
         if not check_result:
             return Response(content="", media_type="text/plain")
 

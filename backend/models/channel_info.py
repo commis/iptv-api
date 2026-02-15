@@ -61,7 +61,7 @@ class ChannelInfo:
         self.id = id
         self.name = name
         self.logo = None
-        self.title = "其他"
+        self.title = "其他频道"
         self.urls: Set[ChannelUrl] = set()
         self._lock = threading.RLock()
 

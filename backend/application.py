@@ -39,8 +39,10 @@ class CreateApplication:
                 port=3000,
                 workers=1
             )
+        except (KeyboardInterrupt, SystemExit):
+            logger.info(f"Server stopped by user.")
         except Exception as e:
-            pass
+            logger.info(f"Unexpected error: {e}")
 
 
 logger.info(f"project root: {os.getcwd()}")

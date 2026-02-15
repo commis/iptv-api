@@ -7,11 +7,10 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, unquote
 
 import m3u8
 import requests
-from requests import Timeout
 
 from core.constants import Constants
 from core.execution_time import log_execution_time, ref
@@ -25,7 +24,6 @@ logger = LoggerFactory.get_logger(__name__)
 
 class TimeoutException(Exception):
     """自定义超时异常"""
-
     pass
 
 
@@ -40,15 +38,13 @@ class ChannelChecker:
             self,
             channel_info: ChannelInfo,
             url_info: ChannelUrl,
-            check_sub_m3u8,
+            check_m3u8,
             timeout=60,
     ) -> bool:
         """带超时控制的频道检测方法"""
         logger.debug(f"Checking {channel_info.name} with {url_info.url}")
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(
-                self._check_single, channel_info, url_info, check_sub_m3u8
-            )
+            future = executor.submit(self._check_single, channel_info, url_info, check_m3u8)
             try:
                 return future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
@@ -62,12 +58,12 @@ class ChannelChecker:
                 return False
 
     def _check_single(
-            self, channel_info: ChannelInfo, url_info: ChannelUrl, check_sub_m3u8
+            self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8
     ) -> bool:
         if url_info.url.endswith(".mp4"):
             return self._check_mp4_validity(url_info.url)
 
-        if check_sub_m3u8:
+        if check_m3u8:
             # 第一阶段：基础验证
             m3u8_content = self._check_m3u8_url(url_info)
             if not m3u8_content:
@@ -195,94 +191,23 @@ class ChannelChecker:
     def _extract_channel_name(self, m3u8_content, url, timeout=3):
         """带超时的频道名称提取"""
 
-        def get_channel_name_worker(m3u8_info, request_url):
-            """频道名称提取的实际工作函数"""
-            # 方案1: 从EXTINF行提取
-            channel_name = self._extract_from_extinf(m3u8_info)
-            if channel_name:
-                return channel_name
-
-            # 方案2: 从Content-Disposition头提取 - 增加超时控制
-            channel_name = self._extract_from_content_disposition(request_url, timeout=2)
-            if channel_name:
-                return channel_name
-
-            return None
+        def get_channel_name_worker(m3u8_url) -> str:
+            path = urlparse(m3u8_url).path
+            filename = os.path.basename(path)
+            raw_name = unquote(filename).replace('.m3u8', '').replace('.ts', '')
+            if raw_name.lower() in ['index', 'playlist', 'chunklist', 'video', '']:
+                segments = path.strip('/').split('/')
+                if len(segments) > 1:
+                    return unquote(segments[-2])
+            return raw_name
 
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(get_channel_name_worker, m3u8_content, url)
             try:
+                future = executor.submit(get_channel_name_worker, url)
                 return future.result(timeout=timeout)
             except Exception as e:
                 logger.error(f"Channel name extraction error: {e}")
                 return None
-
-    def _extract_from_extinf(self, m3u8_content):
-        """
-        强化版EXTINF解析逻辑（禁止使用TS文件名）
-        匹配策略：
-        1. 优先捕获 tvg-name 属性
-        2. 捕获逗号后的显示名称
-        3. 无有效名称时返回None
-        """
-        extinf_pattern = re.compile(
-            r"^#EXTINF:\s*"
-            r"(?P<duration>-?\d+\.?\d*)\s*"  # 捕获时长
-            r'(?:tvg-name=(?P<qt1>[\'"]?)(?P<tvg_name>[^\'",#]+?)(?P=qt1)\s*)?'  # 修复括号
-            r"(?:,?\s*(?P<display_name>[^#]+?))?"  # 显示名称
-            r"\s*(?:#.*)?$",  # 注释部分
-            re.IGNORECASE | re.MULTILINE,
-        )
-        remove_chars = str.maketrans("", "", ",.，。")
-
-        candidates = []
-        for line in m3u8_content.splitlines():
-            if not line.startswith("#EXTINF"):
-                continue
-
-            match = extinf_pattern.match(line)
-            if not match:
-                continue
-
-            groups = match.groupdict()
-            # 优先级1：tvg-name（带/不带引号）
-            if groups["tvg_name"]:
-                clean_name = groups["tvg_name"].strip("'\"")
-                if clean_name:
-                    return clean_name
-
-            # 优先级2：显示名称（需清洗）
-            if groups["display_name"]:
-                display = groups["display_name"].strip()
-                # 过滤无效名称（纯数字、空值等）
-                cleaned_display = display.translate(remove_chars)
-                if cleaned_display:
-                    candidates.append(display)
-
-        # 选择最优显示名称（最长非空值）
-        if candidates:
-            return max(candidates, key=lambda x: len(x))
-
-        return None
-
-    def _extract_from_content_disposition(self, url, timeout=2):
-        """带超时的Content-Disposition提取"""
-        try:
-            response = requests.head(
-                url, timeout=(1, timeout - 1), allow_redirects=True
-            )
-            if "content-disposition" in response.headers:
-                cd_header = response.headers["content-disposition"]
-                filename_match = re.findall("filename=(.+)", cd_header)
-                if filename_match:
-                    filename = filename_match[0].strip('";')
-                    return os.path.splitext(filename)[0]
-        except (Timeout, ConnectionError):
-            pass
-        except Exception as e:
-            logger.error(f"extract_from_content_disposition error: {e}")
-
-        return None
 
     def check_batch(self, threads, task_status, check_m3u8, check_resolution) -> int:
         task_status_lock = threading.Lock()
@@ -304,7 +229,7 @@ class ChannelChecker:
                 check_result = self.check_single_with_timeout(
                     channel_info=tmp_channel_info,
                     url_info=url_info,
-                    check_sub_m3u8=process_m3u8,
+                    check_m3u8=process_m3u8,
                 )
                 if not url_info.valid_resolution(check_resolution):
                     tmp_channel_info.remove_url(url_info)
@@ -318,9 +243,7 @@ class ChannelChecker:
                 return False, None
 
         # 使用生成器和并行处理
-        optimal_threads = min(
-            threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1
-        )
+        optimal_threads = min(threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1)
         with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
             # 使用chunksize提高I/O密集型任务效率
             results = executor.map(check_task, task_generator(), chunksize=max(1, total_count // 10))
@@ -349,9 +272,7 @@ class ChannelChecker:
 
         def process_url(task):
             channel_info, url_info, process_m3u8_invalid = task
-            check_result = self.check_single_with_timeout(
-                channel_info, url_info, process_m3u8_invalid
-            )
+            check_result = self.check_single_with_timeout(channel_info, url_info, process_m3u8_invalid)
             try:
                 if check_result:
                     success_counter.increment()
