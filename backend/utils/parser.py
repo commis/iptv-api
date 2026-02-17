@@ -281,7 +281,7 @@ class Parser:
             for data in data_list:
                 pics = data.get("pics", [])
                 migu_data_info = MiguDataInfo(data.get("name"), data.get("pID"), pics.get("highResolutionH"))
-                migu_play_url = self._get_migo_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
+                migu_play_url = self._get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
                 if migu_play_url:
                     migu_data_info.set_url(migu_play_url)
                     output_data.append(migu_data_info)
@@ -290,8 +290,8 @@ class Parser:
             logger.error(f"get migu cate data failed: {e}")
             return output_data
 
-    def _get_migo_video_url(self, pname, pid, rate_type) -> str:
-        url = self._getAndroidURL720p(pname, pid, rate_type)
+    def _get_migu_video_url(self, pname, pid, rate_type) -> str:
+        url = self._getAndroidURL(pname, pid, rate_type)
         if not url:
             return url
 
@@ -312,7 +312,7 @@ class Parser:
 
         return url
 
-    def _getAndroidURL720p(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
+    def _getAndroidURL(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"
         timestamp = str(round(time.time() * 1000))
@@ -322,9 +322,9 @@ class Parser:
             "TerminalId": "android",
             "X-UP-CLIENT-CHANNEL-ID": appVersionID,
         }
-        # if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
-        #     headers["UserId"] = Constants.MIGU_USERID
-        #     headers["UserToken"] = Constants.MIGU_TOKEN
+        if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
+            headers["UserId"] = Constants.MIGU_USERID
+            headers["UserToken"] = Constants.MIGU_TOKEN
 
         # 排除 CCTV5 和 CCTV5+
         exclude_pids = {"641886683", "641886773"}
