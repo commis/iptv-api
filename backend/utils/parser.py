@@ -99,7 +99,7 @@ class Parser:
                 except ValueError:
                     continue
 
-    def load_remote_url_m3u(self, url: str, is_recursion: bool = False):
+    def load_remote_url_m3u(self, url: str, use_ignore: bool = True, is_recursion: bool = False):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
@@ -125,7 +125,7 @@ class Parser:
                     define_category = category_manager.get_category(group_title)
                     if (
                             define_category is None
-                            or (category_manager.is_ignore(define_category))
+                            or (use_ignore and category_manager.is_ignore(define_category))
                             or not category_manager.exists(define_category)
                     ):
                         continue
@@ -142,7 +142,7 @@ class Parser:
             if not is_recursion:
                 # 处理自建频道
                 self.load_remote_url_txt(self._txt_url, False)
-                self.load_remote_url_m3u(self._m3u_url, True)
+                self.load_remote_url_m3u(self._m3u_url, False, True)
                 channel_manager.sort()
         except Exception as e:
             logger.error(f"parse m3u data failed: {e}")
@@ -173,7 +173,7 @@ class Parser:
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
             self.load_remote_url_txt(self._txt_url, False)
-            self.load_remote_url_m3u(self._m3u_url, True)
+            self.load_remote_url_m3u(self._m3u_url, False, True)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")

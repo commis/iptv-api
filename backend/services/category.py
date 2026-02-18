@@ -1,9 +1,9 @@
 import os
+import re
 import threading
 from typing import Dict, Optional, Any
 
 import yaml
-import re
 
 from core.singleton import singleton
 
@@ -73,6 +73,8 @@ class CategoryManager:
         """初始化频道名称与分类的映射关系"""
         with self._lock:
             for category_name, category_info in self._categories.items():
+                if self.is_ignore(category_name):
+                    continue
                 category_info.update({"name": category_name})
                 category_info.update({"excludes": category_info.get("excludes", [])})
                 channel_list = category_info.get("channels", [])
