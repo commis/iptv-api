@@ -60,16 +60,16 @@ class Parser:
 
         return channel_list
 
-    def load_remote_url_txt(self, url, use_ignore=False):
+    def load_remote_url_txt(self, url):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
-            self.load_channel_txt(response.text.strip(), use_ignore)
+            self.load_channel_txt(response.text.strip())
         except Exception as e:
             logger.error(f"access remote url data failed: {e}")
 
     @staticmethod
-    def load_channel_txt(text_data, use_ignore: bool = False):
+    def load_channel_txt(text_data):
         from services import category_manager
 
         category_name = None
@@ -82,9 +82,7 @@ class Parser:
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
                 define_category = category_manager.get_category(parse_category)
-                if define_category is None or (
-                        use_ignore and category_manager.is_ignore(define_category)
-                ):
+                if define_category is None or (category_manager.is_ignore(define_category)):
                     continue
                 if category_manager.exists(define_category):
                     category_name = define_category
@@ -111,9 +109,7 @@ class Parser:
             tvg_logo = ""
             group_title = ""
             channel_name = None
-            for line in (
-                    line.strip() for line in m3u_data.splitlines() if line.strip()
-            ):
+            for line in (line.strip() for line in m3u_data.splitlines() if line.strip()):
                 if line.startswith("#EXTM3U"):
                     continue
 
@@ -291,7 +287,7 @@ class Parser:
             return output_data
 
     def _get_migu_video_url(self, pname, pid, rate_type) -> str:
-        url = self._getAndroidURL(pname, pid, rate_type)
+        url = self._getAndroidURL720p(pname, pid, rate_type)
         if not url:
             return url
 
@@ -312,7 +308,7 @@ class Parser:
 
         return url
 
-    def _getAndroidURL(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
+    def _getAndroidURL720p(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"
         timestamp = str(round(time.time() * 1000))
