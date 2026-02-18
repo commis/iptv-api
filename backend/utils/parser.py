@@ -60,16 +60,16 @@ class Parser:
 
         return channel_list
 
-    def load_remote_url_txt(self, url):
+    def load_remote_url_txt(self, url, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
-            self.load_channel_txt(response.text.strip())
+            self.load_channel_txt(response.text.strip(), use_ignore)
         except Exception as e:
             logger.error(f"access remote url data failed: {e}")
 
     @staticmethod
-    def load_channel_txt(text_data):
+    def load_channel_txt(text_data, use_ignore):
         from services import category_manager
 
         category_name = None
@@ -82,7 +82,7 @@ class Parser:
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
                 define_category = category_manager.get_category(parse_category)
-                if define_category is None or (category_manager.is_ignore(define_category)):
+                if define_category is None or (use_ignore and category_manager.is_ignore(define_category)):
                     continue
                 if category_manager.exists(define_category):
                     category_name = define_category
@@ -141,7 +141,7 @@ class Parser:
 
             if not is_recursion:
                 # 处理自建频道
-                self.load_remote_url_txt(self._txt_url)
+                self.load_remote_url_txt(self._txt_url, False)
                 self.load_remote_url_m3u(self._m3u_url, True)
                 channel_manager.sort()
         except Exception as e:
@@ -172,7 +172,7 @@ class Parser:
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
-            self.load_remote_url_txt(self._txt_url)
+            self.load_remote_url_txt(self._txt_url, False)
             self.load_remote_url_m3u(self._m3u_url, True)
             channel_manager.sort()
         except Exception as e:
