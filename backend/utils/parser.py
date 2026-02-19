@@ -95,7 +95,7 @@ class Parser:
                     subgenre, url = subgenre.strip(), url.strip()
                     channel_name = category_manager.get_channel(subgenre)
                     if url:
-                        channel_manager.add_channel(category_name, channel_name, url, subgenre)
+                        channel_manager.add_channel(True, category_name, channel_name, url, subgenre)
                 except ValueError:
                     continue
 
@@ -136,7 +136,7 @@ class Parser:
                         else tvg_logo
                     )
                     channel_manager.add_channel(
-                        define_category, channel_name, line, tvg_id, tvg_new_logo
+                        use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo
                     )
 
             if not is_recursion:
@@ -165,7 +165,7 @@ class Parser:
                     for data in data_list:
                         tvg_id = category_manager.get_channel_id(data.name)
                         channel_name = category_manager.get_channel(data.name)
-                        channel_manager.add_channel(cate_name, channel_name, data.url, tvg_id, data.pic)
+                        channel_manager.add_channel(True, cate_name, channel_name, data.url, tvg_id, data.pic)
                         self._get_migu_playback_data(cate_name, data, f)
                         processed_counter.increment()
                     task_manager.update_task(task_id, processed=processed_counter.get_value())

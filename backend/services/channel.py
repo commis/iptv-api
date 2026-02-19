@@ -100,7 +100,7 @@ class ChannelBaseModel:
                 if not category_manager.is_ignore(group_name)
             )
 
-    def add_channel(self, name: str, channel_name, channel_url, id: str = "", logo=None):
+    def add_channel(self, use_ignore: bool, name: str, channel_name, channel_url, id: str = "", logo=None):
         # 添加频道信息，自动归类分类信息，自动过滤排除频道
         with self._lock:
             category_info = category_manager.get_category_object(channel_name, name)
@@ -112,7 +112,10 @@ class ChannelBaseModel:
                 if category_name not in self._channelGroups:
                     self._channelGroups[category_name] = ChannelList()
                 channel_list = self._channelGroups[category_name]
-                if not category_manager.is_exclude(category_info, channel_name):
+
+                if not use_ignore:
+                    channel_list.add_channel(channel_name, channel_url, id, logo)
+                elif not category_manager.is_exclude(category_info, channel_name):
                     channel_list.add_channel(channel_name, channel_url, id, logo)
 
     def add_channel_data(self, name: str, channel_name, channel_url, id, logo):
