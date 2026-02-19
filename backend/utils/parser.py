@@ -7,6 +7,7 @@ from typing import List
 import requests
 
 from api.tv.converter import LiveConverter
+from core import singleton
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from models.counter import Counter
@@ -277,7 +278,7 @@ class Parser:
             for data in data_list:
                 pics = data.get("pics", [])
                 migu_data_info = MiguDataInfo(data.get("name"), data.get("pID"), pics.get("highResolutionH"))
-                migu_play_url = self._get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
+                migu_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
                 if migu_play_url:
                     migu_data_info.set_url(migu_play_url)
                     output_data.append(migu_data_info)
@@ -286,7 +287,7 @@ class Parser:
             logger.error(f"get migu cate data failed: {e}")
             return output_data
 
-    def _get_migu_video_url(self, pname, pid, rate_type) -> str:
+    def get_migu_video_url(self, pname, pid, rate_type: int = 3) -> str:
         url = self._getAndroidURL720p(pname, pid, rate_type)
         if not url:
             return url
@@ -402,3 +403,6 @@ class Parser:
                     pass
 
         return "".join(dd_calcu)
+
+
+parser_manager = Parser()

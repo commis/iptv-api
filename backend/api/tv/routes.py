@@ -1,100 +1,23 @@
-import re
-from typing import Optional, List
-from urllib.parse import urlparse
+from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Body, Query
 from fastapi.responses import Response
-from pydantic import BaseModel, Field, validator
 from starlette import status
 
 from api.tv.converter import LiveConverter
 from api.tv.merger import LiveMerger
 from core.logger_factory import LoggerFactory
+from models.api_request import BatchCheckRequest, UpdateLiveRequest, SingleCheckRequest
+from models.api_response import TaskResponse
 from models.channel_info import ChannelInfo, ChannelUrl
-from models.task_response import TaskResponse
 from services.channel import channel_manager
 from services.checker import ChannelChecker
 from services.task import task_manager
 from utils.handler import handle_exception
-from utils.parser import Parser
+from utils.parser import Parser, parser_manager
 
 router = APIRouter(prefix="/tv", tags=["M3U工具"])
 logger = LoggerFactory.get_logger(__name__)
-
-
-class SingleCheckRequest(BaseModel):
-    """单个频道检查请求模型"""
-
-    url: str = Field(..., description="频道URL")
-    rule: str = Field(default="/{i}/", description="解析规则，必须包含{i}占位符")
-
-    @validator("url")
-    def valid_url(cls, value):
-        """验证URL格式是否有效"""
-        try:
-            result = urlparse(value)
-            if not all([result.scheme, result.netloc]):
-                raise ValueError("无效的URL格式")
-            return value
-        except ValueError as e:
-            raise ValueError(f"URL验证失败: {str(e)}")
-
-    @validator("rule")
-    def rule_contains_placeholder(cls, value):
-        """验证规则中是否包含{i}占位符"""
-        if "{i}" not in value:
-            raise ValueError("规则必须包含{i}占位符")
-        return value
-
-    def extract_id(self, url: str) -> str:
-        """从URL中提取频道ID，若未找到则返回1"""
-        pattern = re.escape(self.rule).replace("\\{i\\}", "(\\d+)")
-        match = re.search(pattern, url)
-        return match.group(1) if match else "index"
-
-
-class BatchCheckRequest(BaseModel):
-    """批量频道检查请求模型"""
-
-    url: str = Field(..., description="包含{i}占位符的基础URL")
-    start: int = Field(1, ge=1, description="起始频道ID")
-    size: int = Field(10, ge=1, le=1000, description="检查数量上限1000")
-    resolution: Optional[str] = Field("1920*1080", description="过滤掉指定分辨率数据")
-    is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限50")
-
-
-class EpgRequest(BaseModel):
-    file: Optional[str] = Field(default="/tmp/e.xml", description="直播源回放信息文件")
-    url: Optional[str] = Field(default="https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
-                               description="直播源回放信息URL")
-    source: Optional[str] = Field(default="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
-                                  description="直播源回放查找参数")
-    domain: Optional[str] = Field(default="", description="LOGO文件域名")
-    show_logo: Optional[bool] = Field(default=True, description="全局开关，是否打开Logo显示")
-    rename_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
-
-
-class UpdateLiveRequest(BaseModel):
-    """更新直播源请求"""
-
-    output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
-    url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
-    epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
-    rate_type: Optional[int] = Field(default=3, description="分辨率，仅在Migu视频有效[2:标清,3:高清,4:蓝光,7:原画,9:4k]")
-    is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限64")
-    low_limit: Optional[int] = Field(5, ge=5, le=300, description="自动更新频道数量下限")
-
-
-class ChannelQuery(BaseModel):
-    speed: int = Field(..., description="频道速率")
-
-    @validator("speed")
-    def check_speed(cls, values):
-        if not values.speed or values.speed.strip() == "":
-            raise ValueError("频道速率不能为空")
-        return values
 
 
 @router.post("/clear", summary="清空内存数据", response_class=Response)
@@ -205,9 +128,8 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             show_logo=request.epg.show_logo
         )
 
-        parser = Parser()
         for url in request.url:
-            parser.load_remote_url_txt(url)
+            parser_manager.load_remote_url_txt(url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
@@ -274,9 +196,8 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             rename_cid=request.epg.rename_cid,
         )
 
-        parser = Parser()
         for url in request.url:
-            parser.load_remote_url_m3u(url)
+            parser_manager.load_remote_url_m3u(url)
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
@@ -320,63 +241,6 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
     except Exception as e:
         logger.error(f"update m3u live sources request failed: {str(e)}", exc_info=True)
         handle_exception("update m3u live sources request failed")
-
-
-@router.post("/update/migu", summary="自动从migu更新直播源", response_model=TaskResponse)
-def update_migu_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
-    """
-    自动更新直播源数据
-    """
-    try:
-        if request.is_clear:
-            channel_manager.clear()
-            task_manager.clear()
-
-        channel_manager.set_epg(
-            url=request.epg.url,
-            source=request.epg.source,
-            domain=request.epg.domain,
-            show_logo=request.epg.show_logo,
-            rename_cid=request.epg.rename_cid,
-        )
-
-        task_id = task_manager.create_task(
-            url="",
-            total=0,
-            type="update_migu_sources",
-            description=f"output: {request.output}",
-        )
-
-        def run_update_live_task() -> None:
-            """后台运行的批量检查任务"""
-            try:
-                task = task_manager.get_task(task_id)
-                task_manager.update_task(task_id, status="running")
-
-                parser = Parser()
-                parser.load_remote_url_migu(task_id, request.epg.file, request.rate_type)
-                total_count = channel_manager.total_count()
-                task_manager.update_task(task_id, total=total_count, processed=0)
-
-                checker = ChannelChecker()
-                success_count = checker.update_batch_live(
-                    threads=request.thread_size,
-                    task_status=task,
-                    check_m3u8_invalid=False,
-                    output_file=request.output,
-                )
-                task.update({"status": "completed", "result": {"success": success_count}})
-            except Exception as re:
-                logger.error(f"update migu live sources task failed: {str(re)}", exc_info=True)
-                task_manager.update_task(task_id, status="error", error=str(re))
-
-        background_tasks.add_task(run_update_live_task)
-        return TaskResponse(data={"task_id": task_id})
-    except ValueError as ve:
-        handle_exception(str(ve), status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"update migu live sources request failed: {str(e)}", exc_info=True)
-        handle_exception("update migu live sources request failed")
 
 
 @router.get("/show/txt", summary="获取频道列表(TXT格式)", response_class=Response)
