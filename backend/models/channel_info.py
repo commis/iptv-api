@@ -46,7 +46,9 @@ class ChannelUrl:
         return False
 
     def __eq__(self, other):
-        return self.url == other.url
+        if isinstance(other, ChannelUrl):
+            return self.url == other.url
+        return False
 
     def __hash__(self):
         return hash(self.url)
@@ -131,10 +133,8 @@ class ChannelInfo:
                 + "\n".join(separator)
                 + "\n"
                 + "\n".join(
-            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",'
-            f"{self.name}\n{url.url}"
-            for url in sorted_urls
-        )
+            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",{self.name}\n{url.url}"'
+            for url in sorted_urls)
         )
 
 
