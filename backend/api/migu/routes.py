@@ -88,4 +88,6 @@ def parse_channel_url(id: str = Path(..., description="频道ID，例如：cctv1
     """根据任务ID获取任务详情"""
     channel_id = Constants.get_migu_cid(id)
     chanel_url = parser_manager.get_migu_video_url("Null", channel_id)
-    return MiguResponse(url=chanel_url, data={"id": channel_id})
+    if chanel_url:
+        return MiguResponse(url=chanel_url, data={"id": channel_id})
+    return MiguResponse(url=chanel_url, code=101, message="解析失败", data={"id": channel_id})
