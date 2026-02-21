@@ -3,6 +3,7 @@
 logs/
 spider/dist/
 spider/dist/epg/*.xml
+spider/dist/epg/result.*
 
 **/__pycache__/
 **/*.pyc
