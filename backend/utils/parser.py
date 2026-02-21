@@ -99,13 +99,11 @@ class Parser:
                 except ValueError:
                     continue
 
-    def load_remote_url_m3u(self, url: str, use_ignore: bool = True):
+    def load_remote_url_m3u(self, url: str):
         try:
-            # 处理自建频道
-            self.load_remote_url_txt(self._txt_url, False)
             self._load_channel_m3u(self._m3u_url, False)
-
-            self._load_channel_m3u(url, use_ignore)
+            self.load_remote_url_txt(self._txt_url, False)
+            self._load_channel_m3u(url, True)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"load remote url m3u data failed: {e}")
@@ -175,8 +173,8 @@ class Parser:
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             # 处理自建频道
+            self._load_channel_m3u(self._m3u_url, False)
             self.load_remote_url_txt(self._txt_url, False)
-            self.load_remote_url_m3u(self._m3u_url, False, True)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
