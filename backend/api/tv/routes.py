@@ -60,9 +60,7 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
 
 
 @router.post("/batch", summary="批量检查频道", response_model=TaskResponse)
-def check_batch_channels(
-        request: BatchCheckRequest, background_tasks: BackgroundTasks
-) -> TaskResponse:
+def check_batch_channels(request: BatchCheckRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """异步批量检查多个电视频道"""
     try:
         if request.is_clear:
@@ -85,16 +83,13 @@ def check_batch_channels(
                 task = task_manager.get_task(task_id)
                 checker = ChannelChecker(request.url, request.start, request.size)
                 success_count = checker.check_batch(
-                    threads=request.thread_size,
+                    threads=20,
                     task_status=task,
                     check_m3u8=True,
                     check_resolution=request.resolution
                 )
                 success_ids = channel_manager.channel_ids()
-                task.update({
-                    "status": "completed",
-                    "result": {"success": success_count, "channels": success_ids},
-                })
+                task.update({"status": "completed", "result": {"success": success_count, "channels": success_ids}})
             except Exception as re:
                 logger.error(f"batch check failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
@@ -131,12 +126,6 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
         for url in request.url:
             parser_manager.load_remote_url_txt(url)
         total_count = channel_manager.total_count()
-        if total_count <= request.low_limit:
-            channel_manager.clear()
-            handle_exception(
-                f"live sources count is too low: {total_count} (less than {request.low_limit})"
-            )
-
         task_id = task_manager.create_task(
             url=request.url,
             total=total_count,
@@ -152,18 +141,14 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
 
                 checker = ChannelChecker(request.url)
                 success_count = checker.update_batch_live(
-                    threads=request.thread_size,
+                    threads=20,
                     task_status=task,
-                    check_m3u8_invalid=False,
+                    check_m3u8_invalid=request.check_m3u8,
                     output_file=request.output,
                 )
-                task.update(
-                    {"status": "completed", "result": {"success": success_count}}
-                )
+                task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
-                logger.error(
-                    f"update live sources task failed: {str(re)}", exc_info=True
-                )
+                logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_update_live_task)
@@ -199,10 +184,6 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
         for url in request.url:
             parser_manager.load_remote_url_m3u(url)
         total_count = channel_manager.total_count()
-        if total_count <= request.low_limit:
-            channel_manager.clear()
-            handle_exception(f"live sources count is too low: {total_count} (less than {request.low_limit})")
-
         task_id = task_manager.create_task(
             url=request.url,
             total=total_count,
@@ -218,9 +199,9 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
 
                 checker = ChannelChecker(request.url)
                 success_count = checker.update_batch_live(
-                    threads=request.thread_size,
+                    threads=20,
                     task_status=task,
-                    check_m3u8_invalid=True,
+                    check_m3u8_invalid=request.check_m3u8,
                     output_file=request.output,
                 )
                 task.update({"status": "completed", "result": {"success": success_count}})
@@ -342,14 +323,8 @@ def merge_live_sources(
 @router.post("/chr/txt", summary="检测TXT格式直播源有效性", response_model=TaskResponse)
 def check_live_sources(
         background_tasks: BackgroundTasks,
-        txt_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待合并的TXT格式直播源数据",
-        ),
-        is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据"),
-        thread_size: Optional[int] = Query(20, ge=1, le=64, description="并发线程数上限64"),
+        txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待合并的TXT格式直播源数据"),
+        is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据")
 ):
     """
     检测TXT格式直播源有效性
@@ -383,16 +358,10 @@ def check_live_sources(
                 task = task_manager.get_task(task_id)
 
                 checker = ChannelChecker()
-                success_count = checker.update_batch_live(
-                    threads=thread_size, task_status=task, check_m3u8_invalid=True
-                )
-                task.update(
-                    {"status": "completed", "result": {"success": success_count}}
-                )
+                success_count = checker.update_batch_live(threads=20, task_status=task, check_m3u8_invalid=True)
+                task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
-                logger.error(
-                    f"check live sources task failed: {str(re)}", exc_info=True
-                )
+                logger.error(f"check live sources task failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_check_live_task)

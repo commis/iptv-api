@@ -54,9 +54,9 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
 
                 checker = ChannelChecker()
                 success_count = checker.update_batch_live(
-                    threads=request.thread_size,
+                    threads=20,
                     task_status=task,
-                    check_m3u8_invalid=True,
+                    check_m3u8_invalid=request.check_m3u8,
                     output_file=request.output,
                 )
                 task.update({"status": "completed", "result": {"success": success_count}})

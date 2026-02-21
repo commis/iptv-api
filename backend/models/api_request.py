@@ -44,7 +44,6 @@ class BatchCheckRequest(BaseModel):
     size: int = Field(10, ge=1, le=1000, description="检查数量上限1000")
     resolution: Optional[int] = Field(1080, description="过滤掉指定分辨率数据")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限50")
 
 
 class EpgRequest(BaseModel):
@@ -65,9 +64,8 @@ class UpdateLiveRequest(BaseModel):
     url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     rate_type: Optional[int] = Field(default=3, description="分辨率，仅在Migu视频有效[2:标清,3:高清,4:蓝光,7:原画,9:4k]")
+    check_m3u8: Optional[bool] = Field(False, description="是否检查视频的有效性")
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
-    thread_size: Optional[int] = Field(20, ge=1, le=64, description="并发线程数上限64")
-    low_limit: Optional[int] = Field(5, ge=5, le=300, description="自动更新频道数量下限")
 
 
 class ChannelQuery(BaseModel):
