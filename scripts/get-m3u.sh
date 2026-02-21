@@ -81,7 +81,9 @@ case "$1" in
     ;;
   epg)
     echo "upload file"
-    upload_file "$2" "/home/app/tvbox/spider/dist/epg/"
+    upload_file "$2/epg"/*.xml "/home/app/tvbox/spider/dist/epg/"
+    upload_file "$2/epg"/result.m3u  "/home/app/tvbox/spider/dist/json/"
+    upload_file "$2/epg"/result.txt  "/home/app/tvbox/spider/dist/json/"
     ;;
   *)
     echo "usage: $0 {all|api|m3u|epg}"
