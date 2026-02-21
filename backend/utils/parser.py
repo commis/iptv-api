@@ -99,7 +99,18 @@ class Parser:
                 except ValueError:
                     continue
 
-    def load_remote_url_m3u(self, url: str, use_ignore: bool = True, is_recursion: bool = False):
+    def load_remote_url_m3u(self, url: str, use_ignore: bool = True):
+        try:
+            # 处理自建频道
+            self.load_remote_url_txt(self._txt_url, False)
+            self._load_channel_m3u(self._m3u_url, False)
+
+            self._load_channel_m3u(url, use_ignore)
+            channel_manager.sort()
+        except Exception as e:
+            logger.error(f"load remote url m3u data failed: {e}")
+
+    def _load_channel_m3u(self, url: str, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
@@ -136,14 +147,8 @@ class Parser:
                         else tvg_logo
                     )
                     channel_manager.add_channel(use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo)
-
-            if not is_recursion:
-                # 处理自建频道
-                self.load_remote_url_txt(self._txt_url, False)
-                self.load_remote_url_m3u(self._m3u_url, False, True)
-                channel_manager.sort()
         except Exception as e:
-            logger.error(f"parse m3u data failed: {e}")
+            logger.error(f"load channel m3u data failed: {e}")
 
     def load_remote_url_migu(self, task_id, epg_file, rate_type):
         try:
