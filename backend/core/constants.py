@@ -10,14 +10,11 @@ class Constants:
     CATEGORY_CLEAN_PATTERN = re.compile(
         r'[\U0001F000-\U0001FFFF\U00002500-\U00002BEF\U00002E00-\U00002E7F\U00003000-\U00003300,#genre#\s]+')
 
-    # 网络请求相关常量
-    REQUEST_TIMEOUT = 5  # 网络请求超时时间（秒）
+    # 网络请求相关常量，不要小于10秒
+    REQUEST_TIMEOUT = 10
 
     # 线程池相关常量
     IO_INTENSITY_FACTOR = 4  # 可在2-8之间调整
-
-    # M3U8解析相关常量
-    TS_SEGMENT_TEST_COUNT = 3  # 测试TS片段数量，建议小于4个
 
     _MIGU_CID_MAP = {
         "CCTV1综合": "cctv1",

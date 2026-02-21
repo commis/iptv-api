@@ -7,7 +7,6 @@ from typing import List
 import requests
 
 from api.tv.converter import LiveConverter
-from core import singleton
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from models.counter import Counter
@@ -136,9 +135,7 @@ class Parser:
                         if change_logo
                         else tvg_logo
                     )
-                    channel_manager.add_channel(
-                        use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo
-                    )
+                    channel_manager.add_channel(use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo)
 
             if not is_recursion:
                 # 处理自建频道
@@ -319,9 +316,9 @@ class Parser:
             "TerminalId": "android",
             "X-UP-CLIENT-CHANNEL-ID": appVersionID,
         }
-        if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
-            headers["UserId"] = Constants.MIGU_USERID
-            headers["UserToken"] = Constants.MIGU_TOKEN
+        # if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
+        #     headers["UserId"] = Constants.MIGU_USERID
+        #     headers["UserToken"] = Constants.MIGU_TOKEN
 
         # 排除 CCTV5 和 CCTV5+
         exclude_pids = {"641886683", "641886773"}
@@ -357,9 +354,7 @@ class Parser:
 
         url_info = respBody.get("urlInfo")
         if not (url_info and (playUrl := url_info.get("url"))):
-            logger.error(
-                f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]"
-            )
+            logger.warning(f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]")
             return playUrl
 
         pid = respBody.get("content", {}).get("contId", pid)

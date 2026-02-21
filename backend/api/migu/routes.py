@@ -56,7 +56,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 success_count = checker.update_batch_live(
                     threads=request.thread_size,
                     task_status=task,
-                    check_m3u8_invalid=False,
+                    check_m3u8_invalid=True,
                     output_file=request.output,
                 )
                 task.update({"status": "completed", "result": {"success": success_count}})
@@ -90,4 +90,4 @@ def parse_channel_url(id: str = Path(..., description="频道ID，例如：cctv1
     chanel_url = parser_manager.get_migu_video_url("Null", channel_id)
     if chanel_url:
         return MiguResponse(url=chanel_url, data={"id": channel_id})
-    return MiguResponse(url=chanel_url, code=101, message="解析失败", data={"id": channel_id})
+    return MiguResponse(url=chanel_url, code=101, message="生成播放地址失败", data={"id": channel_id})

@@ -76,7 +76,7 @@ class ChannelBaseModel:
     def sort(self):
         fix_names = category_manager.get_groups()
         index_map = {name: i for i, name in enumerate(fix_names)}
-        default_index = len(fix_names)  # 不在列表中的项排在末尾
+        default_index = len(fix_names)
 
         with self._lock:
             self._channelGroups = dict(

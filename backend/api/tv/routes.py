@@ -201,9 +201,7 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
         total_count = channel_manager.total_count()
         if total_count <= request.low_limit:
             channel_manager.clear()
-            handle_exception(
-                f"live sources count is too low: {total_count} (less than {request.low_limit})"
-            )
+            handle_exception(f"live sources count is too low: {total_count} (less than {request.low_limit})")
 
         task_id = task_manager.create_task(
             url=request.url,
@@ -222,16 +220,12 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                 success_count = checker.update_batch_live(
                     threads=request.thread_size,
                     task_status=task,
-                    check_m3u8_invalid=False,
+                    check_m3u8_invalid=True,
                     output_file=request.output,
                 )
-                task.update(
-                    {"status": "completed", "result": {"success": success_count}}
-                )
+                task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
-                logger.error(
-                    f"update live sources task failed: {str(re)}", exc_info=True
-                )
+                logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
                 task_manager.update_task(task_id, status="error", error=str(re))
 
         background_tasks.add_task(run_update_live_task)

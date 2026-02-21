@@ -1,15 +1,12 @@
 import concurrent
 import json
 import os
-import re
 import subprocess
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
-from urllib.parse import urljoin, urlparse, unquote
+from urllib.parse import urlparse, unquote
 
-import m3u8
 import requests
 
 from core.constants import Constants
@@ -34,13 +31,8 @@ class ChannelChecker:
         self._size = size
 
     @log_execution_time(name=ref("channel_info.name"), url=ref("url_info.url"))
-    def check_single_with_timeout(
-            self,
-            channel_info: ChannelInfo,
-            url_info: ChannelUrl,
-            check_m3u8,
-            timeout=60,
-    ) -> bool:
+    def check_single_with_timeout(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8,
+                                  timeout=60) -> bool:
         """带超时控制的频道检测方法"""
         logger.debug(f"Checking {channel_info.name} with {url_info.url}")
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
@@ -49,46 +41,28 @@ class ChannelChecker:
                 return future.result(timeout=timeout)
             except concurrent.futures.TimeoutError:
                 # 超时发生时，future会被自动取消
-                logger.warning(
-                    f"Check for {channel_info.name} with {url_info.url} timed out after {timeout} seconds"
-                )
+                logger.warning(f"Check for {channel_info.name} with {url_info.url} timed out after {timeout} seconds")
                 return False
             except Exception as e:
                 logger.error(f"check_single error: {e}")
                 return False
 
-    def _check_single(
-            self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8
-    ) -> bool:
+    def _check_single(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8) -> bool:
         if url_info.url.endswith(".mp4"):
             return self._check_mp4_validity(url_info.url)
 
         if check_m3u8:
-            # 第一阶段：基础验证
             m3u8_content = self._check_m3u8_url(url_info)
             if not m3u8_content:
+                # logger.error(f"Check for {channel_info.name} with {url_info.url} m3u8 is empty")
                 return False
 
-            # 第二阶段：结构验证
-            is_valid, reason = self._check_m3u8_validity(m3u8_content)
-            if not is_valid:
-                logger.debug(
-                    f"M3U8 structure invalid for {channel_info.name} with {url_info.url}: {reason}"
-                )
-                return False
-
-            # # 第三阶段：TS验证
-            ts_urls = self._extract_ts_urls(m3u8_content)
-            if not ts_urls:
-                return False
-
-            # 第四阶段：测速及分辨率
             url_info.set_resolution(self.get_resolution_ffprobe(url_info.url))
             # url_info.set_speed(self._benchmark_speed(tested_urls))
 
             # 第五阶段：元数据提取
             if not channel_info.name:
-                channel_info.set_name(self._extract_channel_name(m3u8_content, url_info.url))
+                channel_info.set_name(self._extract_channel_name(url_info.url))
 
         return True
 
@@ -114,54 +88,20 @@ class ChannelChecker:
             if b"\x00\x00\x00\x18ftyp" in chunk or b"\x00\x00\x00\x20ftyp" in chunk:
                 return True
             return False
-        except:
+        except Exception as e:
             return False
 
     def _check_m3u8_url(self, url_info: ChannelUrl, timeout=Constants.REQUEST_TIMEOUT):
         """带超时的m3u8 URL检查，支持递归解析子m3u8"""
         try:
-            response = requests.get(url_info.url, timeout=(2, timeout - 2))
+            response = requests.get(url_info.url, timeout=(timeout, timeout + 2))
             response.raise_for_status()
-            content = response.text
-
-            if "#EXT-X-STREAM-INF" in content:
-                # 使用正则表达式提取所有流信息和路径
-                for match in re.finditer(r"#EXT-X-STREAM-INF:.*?\n(.+)", content):
-                    child_m3u8 = match.group(1).strip()
-                    url_info.set_url(
-                        child_m3u8
-                        if child_m3u8.startswith("http")
-                        else urljoin(url_info.url, child_m3u8)
-                    )
-                    child_content = self._check_m3u8_url(url_info)
-                    if child_content:
-                        content = child_content
-                        break
-
-            return content
+            return response.text
         except:
             return None
 
-    def _check_m3u8_validity(self, m3u8_content):
-        """增强版M3U8有效性验证"""
-        # 基础验证
-        if not m3u8_content.startswith("#EXTM3U"):
-            return False, "missing #EXTM3U header"
-
-        # 结构验证
-        required_tags = ["#EXT-X-VERSION", "#EXT-X-MEDIA-SEQUENCE"]
-        missing_tags = [tag for tag in required_tags if tag not in m3u8_content]
-        if missing_tags:
-            return False, f"missing required tags: {', '.join(missing_tags)}"
-
-        return True, "结构完整"
-
-    def _extract_ts_urls(self, m3u8_content):
-        m3u8_obj = m3u8.loads(m3u8_content)
-        return m3u8_obj.segments.uri
-
-    def get_resolution_ffprobe(self, url: str, headers: dict = None, timeout: int = 10) -> str:
-        resolution = ''
+    def get_resolution_ffprobe(self, url: str, headers: dict = None, timeout=Constants.REQUEST_TIMEOUT) -> int:
+        resolution = 0
         try:
             headers_str = ''.join(f'{k}: {v}\r\n' for k, v in headers.items()) if headers else ''
             probe_args = [
@@ -182,13 +122,13 @@ class ChannelChecker:
             data = json.loads(result.stdout)
             if "streams" in data and len(data["streams"]) > 0:
                 video_stream = data["streams"][0]
-                resolution = f"{video_stream['width']}*{video_stream['height']}"
+                resolution = video_stream['height']
         except Exception as e:
             pass
 
         return resolution
 
-    def _extract_channel_name(self, m3u8_content, url, timeout=3):
+    def _extract_channel_name(self, url, timeout=5):
         """带超时的频道名称提取"""
 
         def get_channel_name_worker(m3u8_url) -> str:

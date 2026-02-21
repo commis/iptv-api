@@ -11,7 +11,7 @@ class ChannelUrl:
 
     _instances = {}
 
-    def __new__(cls, url: str, speed=0, resolution=None):
+    def __new__(cls, url: str, speed=0, resolution=0):
         if url in cls._instances:
             instance = cls._instances[url]
             # 只更新非默认值的属性
@@ -26,7 +26,7 @@ class ChannelUrl:
             cls._instances[url] = instance
             return instance
 
-    def __init__(self, url: str, speed=0, resolution=''):
+    def __init__(self, url: str, speed=0, resolution=0):
         self.url = url
         self.speed = speed  # 单位：KB/s
         self.resolution = resolution
@@ -113,13 +113,13 @@ class ChannelInfo:
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
-            for url in sorted(self.urls, key=lambda url: url.speed)
+            for url in sorted(self.urls, key=lambda url: url.resolution, reverse=True)
         )
 
     def get_all(self, title="") -> str:
         if not title:
             title = self.title
-        sorted_urls = sorted(self.urls, key=lambda url: url.speed)
+        sorted_urls = sorted(self.urls, key=lambda url: url.resolution, reverse=True)
         separator = [
             "",
             "===============================================================",

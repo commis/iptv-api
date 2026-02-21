@@ -12,5 +12,5 @@ class TaskResponse(BaseModel):
 class MiguResponse(BaseModel):
     code: int = 200
     url: str
-    message: str = "成功获取播放地址"
+    message: str = "成功生成播放地址"
     data: Dict[str, str]
