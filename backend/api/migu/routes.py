@@ -10,7 +10,7 @@ from services.channel import channel_manager
 from services.checker import ChannelChecker
 from services.task import task_manager
 from utils.handler import handle_exception
-from utils.parser import Parser, parser_manager
+from utils.parser import parser_manager
 
 router = APIRouter(prefix="/migu", tags=["MIGU工具"])
 logger = LoggerFactory.get_logger(__name__)
@@ -34,24 +34,22 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
             rename_cid=request.epg.rename_cid,
         )
 
+        for url in request.url:
+            parser_manager.load_remote_url_m3u(url)
         task_id = task_manager.create_task(
             url="",
             total=0,
             type="update_migu_sources",
             description=f"output: {request.output}",
         )
+        parser_manager.load_remote_url_migu(task_id, request.epg.file, request.rate_type)
+        total_count = channel_manager.total_count()
+        task_manager.update_task(task_id, status="running", total=total_count, processed=0)
 
         def run_update_live_task() -> None:
             """后台运行的批量检查任务"""
             try:
                 task = task_manager.get_task(task_id)
-                task_manager.update_task(task_id, status="running")
-
-                parser = Parser()
-                parser.load_remote_url_migu(task_id, request.epg.file, request.rate_type)
-                total_count = channel_manager.total_count()
-                task_manager.update_task(task_id, total=total_count, processed=0)
-
                 checker = ChannelChecker()
                 success_count = checker.update_batch_live(
                     threads=20,
