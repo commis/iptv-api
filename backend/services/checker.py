@@ -217,6 +217,7 @@ class ChannelChecker:
                 if check_result:
                     success_counter.increment()
                 else:
+                    logger.warning(f"Check for {channel_info.name} with {url_info.url} invalid")
                     channel_info.remove_url(url_info)
             finally:
                 with task_status_lock:

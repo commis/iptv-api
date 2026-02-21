@@ -181,12 +181,9 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             rename_cid=request.epg.rename_cid,
         )
 
-        for url in request.url:
-            parser_manager.load_remote_url_m3u(url)
-        total_count = channel_manager.total_count()
         task_id = task_manager.create_task(
             url=request.url,
-            total=total_count,
+            total=0,
             type="update_live_sources",
             description=f"output: {request.output}",
         )
@@ -194,9 +191,13 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
         def run_update_live_task() -> None:
             """后台运行的批量检查任务"""
             try:
-                task_manager.update_task(task_id, status="running")
-                task = task_manager.get_task(task_id)
+                task_manager.update_task(task_id, status="running", processed=0)
+                for url in request.url:
+                    parser_manager.load_remote_url_m3u(url)
+                total_count = channel_manager.total_count()
+                task_manager.update_task(task_id, total=total_count, processed=0)
 
+                task = task_manager.get_task(task_id)
                 checker = ChannelChecker(request.url)
                 success_count = checker.update_batch_live(
                     threads=20,
