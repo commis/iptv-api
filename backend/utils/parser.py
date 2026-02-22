@@ -157,7 +157,7 @@ class Parser:
             with open(epg_file_bak, "w", encoding="utf-8") as f:
                 f.write(
                     '<?xml version="1.0" encoding="utf-8"?>\n'
-                    '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
+                    '<tv generator-info-name="Talk" generator-info-url="https://107.174.95.154/tv">\n'
                 )
                 processed_counter = Counter()
                 for cate in migu_cates:
