@@ -8,28 +8,39 @@ class ChannelUrl:
     """
     频道地址：数据流地址和速度信息
     """
-
     _instances = {}
+    _counter = 0
+    _counter_lock = threading.Lock()
 
     def __new__(cls, url: str, speed=0, resolution=0):
         if url in cls._instances:
             instance = cls._instances[url]
-            # 只更新非默认值的属性
             if speed != 0:
                 instance.set_speed(speed)
-            if resolution is not None:
+            if resolution != 0:
                 instance.set_resolution(resolution)
             return instance
         else:
             instance = super().__new__(cls)
-            instance.__init__(url, speed, resolution)
+            with cls._counter_lock:
+                cls._counter += 1
+                instance._order = cls._counter
             cls._instances[url] = instance
             return instance
 
     def __init__(self, url: str, speed=0, resolution=0):
-        self.url = url
-        self.speed = speed  # 单位：KB/s
-        self.resolution = resolution
+        if not hasattr(self, 'url'):
+            self.url = url
+            self.speed = speed
+            self.resolution = resolution
+
+    def __eq__(self, other):
+        if isinstance(other, ChannelUrl):
+            return self.url == other.url
+        return False
+
+    def __hash__(self):
+        return hash(self.url)
 
     def set_url(self, url: str):
         self.url = url
@@ -41,17 +52,7 @@ class ChannelUrl:
         self.resolution = resolution
 
     def valid_resolution(self, resolution):
-        if self.resolution == resolution:
-            return True
-        return False
-
-    def __eq__(self, other):
-        if isinstance(other, ChannelUrl):
-            return self.url == other.url
-        return False
-
-    def __hash__(self):
-        return hash(self.url)
+        return self.resolution >= resolution
 
 
 class ChannelInfo:
@@ -113,13 +114,13 @@ class ChannelInfo:
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
-            for url in sorted(self.urls, key=lambda url: url.resolution, reverse=True)
+            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x._order), reverse=True)
         )
 
     def get_all(self, title="") -> str:
         if not title:
             title = self.title
-        sorted_urls = sorted(self.urls, key=lambda url: url.resolution, reverse=True)
+        sorted_urls = sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x._order), reverse=True)
         separator = [
             "",
             "===============================================================",
