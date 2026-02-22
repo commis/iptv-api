@@ -95,7 +95,7 @@ class ChannelInfo:
         tvg_id = f"{self.id}" if self.id != "" else f"{self.name}"
         return "\n".join(
             f"{tvg_id},{url.url}"
-            for url in sorted(self.urls, key=lambda url: url.speed)
+            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
         )
 
     def get_m3u(self, change_logo, title, domain, show_logo):
