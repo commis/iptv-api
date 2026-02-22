@@ -1,6 +1,7 @@
 import threading
 from typing import List, Dict, Set
 
+from services import category_manager
 from utils.sort_util import StringSorter
 
 
@@ -9,7 +10,7 @@ class ChannelUrl:
     频道地址：数据流地址和速度信息
     """
     _instances = {}
-    _counter = 0
+    _global_counter = 0
     _counter_lock = threading.Lock()
 
     def __new__(cls, url: str, speed=0, resolution=0):
@@ -20,33 +21,32 @@ class ChannelUrl:
             if resolution != 0:
                 instance.set_resolution(resolution)
             return instance
-        else:
-            instance = super().__new__(cls)
-            with cls._counter_lock:
-                cls._counter += 1
-                instance._order = cls._counter
-            cls._instances[url] = instance
-            return instance
+
+        instance = super().__new__(cls)
+        cls._instances[url] = instance
+        return instance
 
     def __init__(self, url: str, speed=0, resolution=0):
-        if not hasattr(self, 'url'):
+        if not hasattr(self, "_order"):
             self.url = url
             self.speed = speed
             self.resolution = resolution
+            with self._counter_lock:
+                ChannelUrl._global_counter += 1
+                self._order = ChannelUrl._global_counter
 
     def __eq__(self, other):
-        if isinstance(other, ChannelUrl):
-            return self.url == other.url
-        return False
+        return isinstance(other, ChannelUrl) and self.url == other.url
 
     def __hash__(self):
         return hash(self.url)
 
-    def set_url(self, url: str):
-        self.url = url
+    @property
+    def order(self):
+        return self._order
 
     def set_speed(self, speed):
-        self.speed = round(speed, 1)
+        self.speed = speed
 
     def set_resolution(self, resolution):
         self.resolution = resolution
@@ -114,13 +114,13 @@ class ChannelInfo:
         return "\n".join(
             f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
             f"{self.name}\n{url.url}"
-            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x._order), reverse=True)
+            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
         )
 
     def get_all(self, title="") -> str:
         if not title:
             title = self.title
-        sorted_urls = sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x._order), reverse=True)
+        sorted_urls = sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
         separator = [
             "",
             "===============================================================",
@@ -222,7 +222,8 @@ class ChannelList:
 
     def write_to_m3u_file(self, group_name, domain, show_logo, file_handle):
         with self._lock:
+            change_logo = category_manager.change_logo(group_name)
             for channel_info in self._sorted_channels():
-                m3u_line = channel_info.get_m3u(group_name, domain, show_logo)
+                m3u_line = channel_info.get_m3u(change_logo, group_name, domain, show_logo)
                 if m3u_line:
                     file_handle.write(f"{m3u_line}\n")
