@@ -188,9 +188,10 @@ class Parser:
         output_data = []
         body = json_cate_data.get("body", {})
         live_list = body.get("liveList", [])
+        exclude_names = {"热门", "少儿"}
         for live in live_list:
             name = live.get("name", "")
-            if name != "热门":
+            if name not in exclude_names:
                 output_data.append(MiguCateInfo(name, live.get("vomsID")))
 
         return output_data
