@@ -288,7 +288,7 @@ class ChannelChecker:
             with open(file_path, "w", encoding="utf-8") as f:
                 channel_manager.write_to_txt_file(f)
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"# 频道数据导出时间: {timestamp}")
+                f.write(f"## 频道数据导出时间: {timestamp}")
             logger.info(f"channel data saved to txt file {file_path}")
         except Exception as e:
             logger.error(f"save data to txt file error: {e}")
@@ -312,7 +312,7 @@ class ChannelChecker:
             with open(new_file_path, "w", encoding="utf-8") as f:
                 channel_manager.write_to_m3u_file(f)
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"# 频道数据导出时间: {timestamp}")
+                f.write(f"## 频道数据导出时间: {timestamp}")
             logger.info(f"channel data saved to m3u file {new_file_path}")
         except Exception as e:
             logger.error(f"save data to m3u file error: {e}")
