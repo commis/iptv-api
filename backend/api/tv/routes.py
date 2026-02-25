@@ -243,12 +243,12 @@ def get_channels_m3u():
 
 @router.post("/cvt/txt", summary="TXT格式转换为M3U格式", response_model=str)
 def convert_txt_to_m3u(
-        txt_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待转换的TXT格式直播源数据",
-        )
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待转换的TXT格式直播源数据",
+    )
 ):
     """
     将TXT格式的直播源数据转换为M3U格式
@@ -268,12 +268,12 @@ def convert_txt_to_m3u(
 
 @router.post("/cvt/m3u", summary="M3U格式转换为TXT格式", response_model=str)
 def convert_m3u_to_txt(
-        m3u_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待转换的M3U格式直播源数据",
-        )
+    m3u_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待转换的M3U格式直播源数据",
+    )
 ):
     """
     将M3U格式的直播源数据转换为TXT格式
@@ -293,13 +293,13 @@ def convert_m3u_to_txt(
 
 @router.post("/mgr/txt", summary="合并TXT格式直播源并选择最优", response_model=str)
 def merge_live_sources(
-        txt_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待合并的TXT格式直播源数据",
-        ),
-        top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)"),
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待合并的TXT格式直播源数据",
+    ),
+    top_n: int = Query(3, ge=1, le=10, description="选择排名前N的直播源(1-10)"),
 ):
     """
     合并TXT格式的直播源数据并选择最优的前N个
@@ -323,9 +323,9 @@ def merge_live_sources(
 
 @router.post("/chr/txt", summary="检测TXT格式直播源有效性", response_model=TaskResponse)
 def check_live_sources(
-        background_tasks: BackgroundTasks,
-        txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待合并的TXT格式直播源数据"),
-        is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据")
+    background_tasks: BackgroundTasks,
+    txt_data: str = Body(..., media_type="text/plain", min_length=1, description="待合并的TXT格式直播源数据"),
+    is_clear: Optional[bool] = Query(True, description="是否清空已有频道数据")
 ):
     """
     检测TXT格式直播源有效性
@@ -373,12 +373,12 @@ def check_live_sources(
 
 @router.post("/sort/txt", summary="TXT格式按分类进行排序", response_model=str)
 def sort_txt_content(
-        txt_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待排序的TXT格式直播源数据",
-        )
+    txt_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待排序的TXT格式直播源数据",
+    )
 ):
     """
     将TXT格式按分类名称进行排序
@@ -396,12 +396,12 @@ def sort_txt_content(
 
 @router.post("/sort/m3u", summary="M3U格式按分类进行排序", response_model=str)
 def sort_m3u_content(
-        m3u_data: str = Body(
-            ...,
-            media_type="text/plain",
-            min_length=1,
-            description="待排序的M3U格式直播源数据",
-        )
+    m3u_data: str = Body(
+        ...,
+        media_type="text/plain",
+        min_length=1,
+        description="待排序的M3U格式直播源数据",
+    )
 ):
     """
     将M3U格式按分类名称进行排序

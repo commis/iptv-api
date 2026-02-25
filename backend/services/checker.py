@@ -4,7 +4,8 @@ import os
 import subprocess
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from urllib.parse import urlparse, unquote
 
 import requests
@@ -31,21 +32,13 @@ class ChannelChecker:
         self._size = size
 
     @log_execution_time(name=ref("channel_info.name"), url=ref("url_info.url"))
-    def check_single_with_timeout(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8,
-                                  timeout=60) -> bool:
-        """带超时控制的频道检测方法"""
+    def check_single_with_timeout(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8) -> bool:
         logger.debug(f"Checking {channel_info.name} with {url_info.url}")
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self._check_single, channel_info, url_info, check_m3u8)
-            try:
-                return future.result(timeout=timeout)
-            except concurrent.futures.TimeoutError:
-                # 超时发生时，future会被自动取消
-                logger.warning(f"Check for {channel_info.name} with {url_info.url} timed out after {timeout} seconds")
-                return False
-            except Exception as e:
-                logger.error(f"check_single error: {e}")
-                return False
+        try:
+            return self._check_single(channel_info, url_info, check_m3u8)
+        except Exception as e:
+            logger.warning(f"Check for {channel_info.name} failed: {e}")
+            return False
 
     def _check_single(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8) -> bool:
         if url_info.url.endswith(".mp4"):
@@ -60,94 +53,102 @@ class ChannelChecker:
             url_info.set_resolution(self.get_resolution_ffprobe(url_info.url))
             # url_info.set_speed(self._benchmark_speed(tested_urls))
 
-            # 第五阶段：元数据提取
             if not channel_info.name:
                 channel_info.set_name(self._extract_channel_name(url_info.url))
 
         return True
 
     def _check_mp4_validity(self, url: str, timeout=Constants.REQUEST_TIMEOUT) -> bool:
-        """MP4 播放有效性检查"""
         try:
-            response = requests.head(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.head(url, timeout=timeout, allow_redirects=True)
             response.raise_for_status()
-            content_type = response.headers.get("Content-Type")
-            if content_type and "video/mp4" not in content_type.lower():
+            content_type = response.headers.get("Content-Type", "").lower()
+            if content_type and "video" not in content_type and "mp4" not in content_type:
                 return False
 
             content_length = response.headers.get("Content-Length")
             if content_length and int(content_length) < 1024:
                 return False
 
-            partial_response = requests.get(url, stream=True, timeout=timeout)
-            partial_response.raise_for_status()
-            # 读取前 8Bit 内容，检查是否包含 MP4 头部信息
-            chunk = partial_response.raw.read(8)
-            partial_response.close()
-            # MP4 文件以 0x00000018 或 0x00000020 开头，后跟 "ftyp" 字符串
-            if b"\x00\x00\x00\x18ftyp" in chunk or b"\x00\x00\x00\x20ftyp" in chunk:
-                return True
+            with requests.get(url, stream=True, timeout=timeout) as partial_response:
+                partial_response.raise_for_status()
+                iterator = partial_response.iter_content(chunk_size=32)
+                try:
+                    chunk = next(iterator)
+                except StopIteration:
+                    return False
+
+                if b"ftyp" in chunk or b"\x00\x00\x00\x18ftyp" in chunk or b"\x00\x00\x00\x20ftyp" in chunk:
+                    return True
+            return False
+        except (requests.Timeout, requests.ConnectionError):
+            logger.warning(f"MP4 check timed out/failed for {url}")
             return False
         except Exception as e:
+            logger.debug(f"MP4 validity check error: {e}")
             return False
 
     def _check_m3u8_url(self, url_info: ChannelUrl, timeout=Constants.REQUEST_TIMEOUT):
-        """带超时的m3u8 URL检查，支持递归解析子m3u8"""
         try:
-            response = requests.get(url_info.url, timeout=(timeout, timeout + 2))
+            session = requests.Session()
+            session.max_redirects = 3
+            response = session.get(url_info.url, timeout=(5, timeout), allow_redirects=True)
             response.raise_for_status()
             return response.text
-        except:
+        except Exception:
             return None
 
-    def get_resolution_ffprobe(self, url: str, headers: dict = None, timeout=Constants.REQUEST_TIMEOUT) -> int:
+    def get_resolution_ffprobe(self, url: str, timeout=Constants.REQUEST_TIMEOUT) -> int:
         resolution = 0
         try:
-            headers_str = ''.join(f'{k}: {v}\r\n' for k, v in headers.items()) if headers else ''
+            ms_timeout = str(timeout * 1000)
             probe_args = [
                 'ffprobe',
                 '-v', 'error',
-                '-headers', headers_str,
-                '-connect_timeout', '5000',
-                '-rw_timeout', '5000000',
+                '-hide_banner',
+                '-rw_timeout', str(timeout * 1000000),
+                '-stimeout', str(timeout * 1000000),
+                '-connect_timeout', ms_timeout,
                 '-probesize', '32768',
                 '-analyzeduration', '1000000',
                 '-select_streams', 'v:0',
-                '-show_entries', 'stream=width,height',
+                '-show_entries', 'stream=height',
                 "-of", 'json',
                 url
             ]
 
-            result = subprocess.run(probe_args, capture_output=True, text=True, timeout=timeout, check=True)
+            result = subprocess.run(
+                probe_args,
+                capture_output=True,
+                text=True,
+                timeout=timeout + 5,
+                check=True
+            )
             data = json.loads(result.stdout)
-            if "streams" in data and len(data["streams"]) > 0:
-                video_stream = data["streams"][0]
-                resolution = video_stream['height']
+            if "streams" in data and data["streams"]:
+                resolution = data["streams"][0].get('height', 0)
+        except subprocess.TimeoutExpired:
+            logger.warning(f"ffprobe timed out for {url}")
         except Exception as e:
+            # logger.error(f"get resolution ffprobe failed: {e}")
             pass
-
         return resolution
 
-    def _extract_channel_name(self, url, timeout=5):
-        """带超时的频道名称提取"""
-
-        def get_channel_name_worker(m3u8_url) -> str:
-            path = urlparse(m3u8_url).path
+    def _extract_channel_name(self, url):
+        try:
+            path = urlparse(url).path
             filename = os.path.basename(path)
             raw_name = unquote(filename).replace('.m3u8', '').replace('.ts', '')
+
+            # 处理 index/playlist 等无意义文件名
             if raw_name.lower() in ['index', 'playlist', 'chunklist', 'video', '']:
                 segments = path.strip('/').split('/')
                 if len(segments) > 1:
                     return unquote(segments[-2])
             return raw_name
-
-        with ThreadPoolExecutor(max_workers=1) as executor:
-            try:
-                future = executor.submit(get_channel_name_worker, url)
-                return future.result(timeout=timeout)
-            except Exception as e:
-                logger.error(f"Channel name extraction error: {e}")
-                return None
+        except Exception as e:
+            logger.error(f"Channel name extraction error for {url}: {e}")
+            return None
 
     def check_batch(self, threads, task_status, check_m3u8, check_resolution) -> int:
         task_status_lock = threading.Lock()
@@ -155,70 +156,95 @@ class ChannelChecker:
         processed_count = Counter()
         total_count = self._size
 
-        # 生成器函数：逐个生成任务，避免一次性创建所有任务列表
-        def task_generator():
-            for index in range(self._start, self._start + self._size):
-                url_info = ChannelUrl(self._url.format(i=index))
-                tmp_channel_info = ChannelInfo(id=str(index))
-                tmp_channel_info.add_url(url_info)
-                yield tmp_channel_info, url_info, check_m3u8
+        # 如果没有任务直接返回
+        if total_count <= 0:
+            task_status.update({"progress": 100, "processed": 0, "success": 0})
+            return 0
 
-        def check_task(args):
-            tmp_channel_info, url_info, process_m3u8 = args
+        def check_task(task_args):
+            tmp_channel_info, url_info, process_m3u8 = task_args
             try:
                 check_result = self.check_single_with_timeout(
                     channel_info=tmp_channel_info,
                     url_info=url_info,
                     check_m3u8=process_m3u8,
                 )
-                if not url_info.valid_resolution(check_resolution):
+                # 验证分辨率逻辑
+                if check_result and not url_info.valid_resolution(check_resolution):
                     tmp_channel_info.remove_url(url_info)
+                    check_result = False
 
                 return check_result, tmp_channel_info
-            except TimeoutException as te:
-                logger.warning(f"Timeout checking {url_info.url}: {te}")
-                return False, None
-            except Exception as e:
-                logger.error(f"Error checking {url_info.url}: {e}")
+            except Exception as ex:
+                logger.error(f"Error checking {url_info.url}: {ex}")
                 return False, None
 
-        # 使用生成器和并行处理
         optimal_threads = min(threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1)
-        with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
-            # 使用chunksize提高I/O密集型任务效率
-            results = executor.map(check_task, task_generator(), chunksize=max(1, total_count // 10))
-            for result, channel_info in results:
-                if result and channel_info and channel_info.valid():
-                    channel_manager.add_channel_info(None, channel_info)
-                    success_count.increment()
 
-                with task_status_lock:
-                    processed_count.increment()
-                    task_status.update({
-                        "progress": round(processed_count.get_value() / total_count * 100, 2),
-                        "processed": processed_count.get_value(),
-                        "success": success_count.get_value(),
-                        "updated_at": int(time.time()),
-                    })
+        with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
+            # 1. 提交所有任务并获取 future 对象
+            future_to_task = {
+                executor.submit(check_task, (
+                    ChannelInfo(id=str(index)),
+                    ChannelUrl(self._url.format(i=index)),
+                    check_m3u8
+                )): index
+                for index in range(self._start, self._start + self._size)
+            }
+
+            # 2. 使用 as_completed，谁快谁先更新进度
+            for future in concurrent.futures.as_completed(future_to_task):
+                try:
+                    result, channel_info = future.result()
+                    if result and channel_info and channel_info.valid():
+                        channel_manager.add_channel_info(None, channel_info)
+                        success_count.increment()
+                except Exception as e:
+                    logger.error(f"Task generated an exception: {e}")
+                finally:
+                    # 3. 无论成功失败都更新进度
+                    with task_status_lock:
+                        processed_count.increment()
+                        p_val = processed_count.get_value()
+                        task_status.update({
+                            "progress": round(p_val / total_count * 100, 2),
+                            "processed": p_val,
+                            "success": success_count.get_value(),
+                            "updated_at": int(time.time()),
+                        })
         channel_manager.sort()
         return success_count.get_value()
 
     def update_batch_live(self, threads, task_status, check_m3u8_invalid, output_file=None) -> int:
-        """批量更新直播频道信息"""
         task_status_lock = threading.Lock()
         success_counter = Counter()
         processed_counter = Counter()
-        total_count = task_status["total"]
+
+        tasks = []
+        for group_name in filter(lambda g: not category_manager.is_ignore(g), channel_manager.get_groups()):
+            chanmel_list = channel_manager.get_channel_list(group_name)
+            for channel_name in chanmel_list.get_channel_names():
+                channel_info = chanmel_list.get_channel(channel_name)
+                for url_info in channel_info.get_urls():
+                    tasks.append((channel_info, url_info, check_m3u8_invalid))
+
+        total_count = len(tasks)
+        task_status["total"] = total_count
+        if total_count == 0:
+            task_status.update({"progress": 100, "processed": 0, "success": 0})
+            return 0
 
         def process_url(task):
-            channel_info, url_info, process_m3u8_invalid = task
-            check_result = self.check_single_with_timeout(channel_info, url_info, process_m3u8_invalid)
             try:
+                task_channel_info, task_url_info, process_m3u8_invalid = task
+                check_result = self.check_single_with_timeout(task_channel_info, task_url_info, process_m3u8_invalid)
                 if check_result:
                     success_counter.increment()
                 else:
-                    logger.warning(f"Check for {channel_info.name} with {url_info.url} invalid")
-                    channel_info.remove_url(url_info)
+                    logger.warning(f"Check for {task_channel_info.name} with {task_url_info.url} invalid")
+                    task_channel_info.remove_url(task_url_info)
+            except Exception as e:
+                logger.error(f"Critical error in process_url: {e}")
             finally:
                 with task_status_lock:
                     processed_counter.increment()
@@ -230,48 +256,16 @@ class ChannelChecker:
                         "updated_at": int(time.time()),
                     })
 
-        # 生成任务并立即处理
-        optimal_threads = min(
-            threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1
-        )
+        optimal_threads = min(threads, os.cpu_count() * Constants.IO_INTENSITY_FACTOR + 1)
         with ThreadPoolExecutor(max_workers=optimal_threads) as executor:
-
-            def task_generator():
-                actual_count = 0
-                # 部分分类组忽略不予处理
-                for group_name in filter(
-                        lambda g: not category_manager.is_ignore(g),
-                        channel_manager.get_groups(),
-                ):
-                    chanmel_list = channel_manager.get_channel_list(group_name)
-                    channel_name_list = chanmel_list.get_channel_names()
-                    for channel_name in channel_name_list:
-                        channel_info = chanmel_list.get_channel(channel_name)
-                        url_list = list(channel_info.get_urls())
-                        actual_count += len(url_list)
-                        for url_info in url_list:
-                            yield channel_info, url_info, check_m3u8_invalid
-                # 验证实际任务数
-                nonlocal total_count
-                if actual_count != total_count:
-                    logger.warning(f"Actual task count ({actual_count}) differs from expected total ({total_count})")
-                    total_count = actual_count
-                    task_status["total"] = total_count
-                return actual_count
-
-            # 提交所有任务
-            futures = [executor.submit(process_url, task) for task in task_generator()]
-            for future in as_completed(futures):
+            futures = [executor.submit(process_url, t) for t in tasks]
+            for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
                 except Exception as e:
-                    logger.error(f"future result error: {e}")
+                    logger.error(f"Future unexpected error: {e}")
 
-        # 最终状态验证
-        final_processed = processed_counter.get_value()
         final_success = success_counter.get_value()
-        logger.info(f"Final status: Total={total_count}, Processed={final_processed}, Success={final_success}")
-
         self._write_data_to_txt_file(output_file)
         self._write_data_to_m3u_file(output_file)
         return final_success
