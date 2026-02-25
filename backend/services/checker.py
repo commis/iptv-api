@@ -9,6 +9,7 @@ from datetime import datetime
 from urllib.parse import urlparse, unquote
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from core.constants import Constants
 from core.execution_time import log_execution_time, ref
@@ -26,10 +27,19 @@ class TimeoutException(Exception):
 
 
 class ChannelChecker:
-    def __init__(self, url="", start=0, size=1):
+    def __init__(self, threads, url="", start=0, size=1):
         self._url = url
         self._start = start
         self._size = size
+
+        self.session = requests.Session()
+        adapter = HTTPAdapter(
+            pool_connections=threads,
+            pool_maxsize=threads + 10,
+            max_retries=1
+        )
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
     @log_execution_time(name=ref("channel_info.name"), url=ref("url_info.url"))
     def check_single_with_timeout(self, channel_info: ChannelInfo, url_info: ChannelUrl, check_m3u8) -> bool:
@@ -60,7 +70,7 @@ class ChannelChecker:
 
     def _check_mp4_validity(self, url: str, timeout=Constants.REQUEST_TIMEOUT) -> bool:
         try:
-            response = requests.head(url, timeout=timeout, allow_redirects=True)
+            response = requests.head(url, timeout=(5, timeout), allow_redirects=True)
             response.raise_for_status()
             content_type = response.headers.get("Content-Type", "").lower()
             if content_type and "video" not in content_type and "mp4" not in content_type:
@@ -70,7 +80,7 @@ class ChannelChecker:
             if content_length and int(content_length) < 1024:
                 return False
 
-            with requests.get(url, stream=True, timeout=timeout) as partial_response:
+            with requests.get(url, stream=True, timeout=(5, timeout)) as partial_response:
                 partial_response.raise_for_status()
                 iterator = partial_response.iter_content(chunk_size=32)
                 try:
@@ -90,48 +100,59 @@ class ChannelChecker:
 
     def _check_m3u8_url(self, url_info: ChannelUrl, timeout=Constants.REQUEST_TIMEOUT):
         try:
-            session = requests.Session()
-            session.max_redirects = 3
-            response = session.get(url_info.url, timeout=(5, timeout), allow_redirects=True)
-            response.raise_for_status()
-            return response.text
-        except Exception:
+            with self.session.get(
+                url_info.url,
+                timeout=(5, timeout),
+                allow_redirects=True,
+                stream=True
+            ) as response:
+                response.raise_for_status()
+                content = response.raw.read(1024 * 1024).decode('utf-8', errors='ignore')
+                return content
+        except Exception as e:
+            # logger.debug(f"Request failed: {e}")
             return None
 
     def get_resolution_ffprobe(self, url: str, timeout=Constants.REQUEST_TIMEOUT) -> int:
         resolution = 0
+        ms_timeout = str(timeout * 1000)
+        micro_timeout = str(timeout * 1000000)
         try:
-            ms_timeout = str(timeout * 1000)
             probe_args = [
                 'ffprobe',
-                '-v', 'error',
+                '-v', 'quiet',
                 '-hide_banner',
-                '-rw_timeout', str(timeout * 1000000),
-                '-stimeout', str(timeout * 1000000),
-                '-connect_timeout', ms_timeout,
-                '-probesize', '32768',
-                '-analyzeduration', '1000000',
                 '-select_streams', 'v:0',
                 '-show_entries', 'stream=height',
-                "-of", 'json',
+                '-of', 'json',
+                '-probesize', '500000',
+                '-analyzeduration', '3000000',
+                '-connect_timeout', ms_timeout,
+                '-rw_timeout', micro_timeout,
+                '-stimeout', micro_timeout,
+                '-fflags', 'nobuffer',
+                '-flags', 'low_delay',
                 url
             ]
-
             result = subprocess.run(
                 probe_args,
-                capture_output=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
                 text=True,
-                timeout=timeout + 5,
+                timeout=timeout + 2,
                 check=True
             )
-            data = json.loads(result.stdout)
-            if "streams" in data and data["streams"]:
-                resolution = data["streams"][0].get('height', 0)
+            if result.stdout.strip():
+                data = json.loads(result.stdout)
+                if "streams" in data and data["streams"]:
+                    resolution = data["streams"][0].get('height', 0)
         except subprocess.TimeoutExpired:
-            logger.warning(f"ffprobe timed out for {url}")
+            logger.warning(f"FFprobe process hard-timeout for {url}")
+        except subprocess.CalledProcessError as e:
+            logger.debug(f"FFprobe failed to parse {url}: {e}")
         except Exception as e:
-            # logger.error(f"get resolution ffprobe failed: {e}")
-            pass
+            logger.error(f"Unexpected error in ffprobe: {e}")
+
         return resolution
 
     def _extract_channel_name(self, url):
@@ -246,12 +267,11 @@ class ChannelChecker:
             except Exception as e:
                 logger.error(f"Critical error in process_url: {e}")
             finally:
+                current_processed = processed_counter.increment()
                 with task_status_lock:
-                    processed_counter.increment()
-                    processed = processed_counter.get_value()
                     task_status.update({
-                        "progress": round(processed / total_count * 100, 2),
-                        "processed": processed,
+                        "processed": current_processed,
+                        "progress": round(current_processed / total_count * 100, 2),
                         "success": success_counter.get_value(),
                         "updated_at": int(time.time()),
                     })

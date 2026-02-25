@@ -51,10 +51,11 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 
+                task_threads = 20
                 task = task_manager.get_task(task_id)
-                checker = ChannelChecker()
+                checker = ChannelChecker(task_threads)
                 success_count = checker.update_batch_live(
-                    threads=20,
+                    threads=task_threads,
                     task_status=task,
                     check_m3u8_invalid=request.check_m3u8,
                     output_file=request.output,

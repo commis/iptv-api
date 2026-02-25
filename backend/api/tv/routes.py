@@ -44,7 +44,7 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
         channel_info = ChannelInfo(request.extract_id(request.url))
         channel_info.add_url(url_info)
 
-        checker = ChannelChecker(request.url)
+        checker = ChannelChecker(1, request.url)
         check_result = checker.check_single_with_timeout(channel_info, url_info, check_m3u8=True)
         if not check_result:
             return Response(content="", media_type="text/plain")
@@ -81,9 +81,11 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
             try:
                 task_manager.update_task(task_id, status="running")
                 task = task_manager.get_task(task_id)
-                checker = ChannelChecker(request.url, request.start, request.size)
+
+                task_threads = 20
+                checker = ChannelChecker(task_threads, request.url, request.start, request.size)
                 success_count = checker.check_batch(
-                    threads=20,
+                    threads=task_threads,
                     task_status=task,
                     check_m3u8=True,
                     check_resolution=request.resolution
@@ -139,13 +141,13 @@ def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                 task_manager.update_task(task_id, status="running")
                 task = task_manager.get_task(task_id)
 
-                checker = ChannelChecker(request.url)
+                task_threads = 20
+                checker = ChannelChecker(task_threads, request.url)
                 success_count = checker.update_batch_live(
-                    threads=20,
+                    threads=task_threads,
                     task_status=task,
                     check_m3u8_invalid=request.check_m3u8,
-                    output_file=request.output,
-                )
+                    output_file=request.output)
                 task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
                 logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
@@ -197,14 +199,14 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 
+                task_threads = 20
                 task = task_manager.get_task(task_id)
-                checker = ChannelChecker(request.url)
+                checker = ChannelChecker(task_threads, request.url)
                 success_count = checker.update_batch_live(
-                    threads=20,
+                    threads=task_threads,
                     task_status=task,
                     check_m3u8_invalid=request.check_m3u8,
-                    output_file=request.output,
-                )
+                    output_file=request.output)
                 task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
                 logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
@@ -358,8 +360,12 @@ def check_live_sources(
                 task_manager.update_task(task_id, status="running")
                 task = task_manager.get_task(task_id)
 
-                checker = ChannelChecker()
-                success_count = checker.update_batch_live(threads=20, task_status=task, check_m3u8_invalid=True)
+                task_threads = 20
+                checker = ChannelChecker(task_threads)
+                success_count = checker.update_batch_live(
+                    threads=task_threads,
+                    task_status=task,
+                    check_m3u8_invalid=True)
                 task.update({"status": "completed", "result": {"success": success_count}})
             except Exception as re:
                 logger.error(f"check live sources task failed: {str(re)}", exc_info=True)

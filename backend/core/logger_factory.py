@@ -72,7 +72,7 @@ class LoggerFactory:
         # 初始化根日志器（单例模式）
         if LoggerFactory._root_logger is None:
             LoggerFactory._root_logger = logging.getLogger()
-            LoggerFactory._root_logger.setLevel(logging.DEBUG)  # 根日志器设为最低级别
+            LoggerFactory._root_logger.setLevel(logging.DEBUG)
 
             # 添加文件处理器
             file_handler = LoggerFactory._get_file_handler()
@@ -89,6 +89,10 @@ class LoggerFactory:
         # 创建或获取命名日志器
         logger = logging.getLogger(name)
         logger.setLevel(level)
+
+        # 关闭特殊模块日志
+        logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
+        logging.getLogger("requests").setLevel(logging.ERROR)
 
         # 控制是否输出到控制台
         if not with_console:
