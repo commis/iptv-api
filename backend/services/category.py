@@ -120,15 +120,17 @@ class CategoryManager:
         with self._lock:
             return category in self._categories
 
-    def change_logo(self, category: str) -> bool:
+    def do_channel_logo(self, category: str) -> int:
         """
-        片段是否需要替换logo路经
+        分类是否需要替换logo路经，使用二进制位表示，显示不替换
+        00=0: 关闭， 01=1：显示不替换，11=3：显示且替换替换
         """
+        default_value: int = 1
         with self._lock:
             cagegory_info = self._categories.get(category)
             if cagegory_info:
-                return cagegory_info.get("change_logo", True)
-        return True
+                return int(cagegory_info.get("tvg_logo", default_value))
+        return default_value
 
     def get_category_info(self, category_name: str) -> Optional[Dict[str, object]]:
         """

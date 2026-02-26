@@ -15,7 +15,7 @@ PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
 class EpgBaseModel:
 
     def __init__(
-            self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+        self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
         self._url = url
         self._source = source
         self._domain = None if domain is None or domain == "" else domain
@@ -169,8 +169,11 @@ class ChannelBaseModel:
         with self._lock:
             result = [self._get_extm3u_header()]
             for group_name, channel_list in self._channelGroups.items():
-                change_logo = category_manager.change_logo(group_name)
-                result.append(channel_list.get_m3u(change_logo, group_name, self._epg.domain, self._epg.show_logo))
+                do_channel_logo = category_manager.do_channel_logo(group_name)
+                result.append(channel_list.get_m3u(do_channel_logo,
+                                                   group_name,
+                                                   self._epg.domain,
+                                                   self._epg.show_logo))
             return "\n".join(result).strip()
 
     def to_txt_string(self) -> str:
@@ -193,8 +196,11 @@ class ChannelBaseModel:
         with self._lock:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
-                change_logo = category_manager.change_logo(group_name)
-                file_handle.write(channel_list.get_m3u(change_logo, group_name, self._epg.domain, self._epg.show_logo))
+                do_channel_logo = category_manager.do_channel_logo(group_name)
+                file_handle.write(channel_list.get_m3u(do_channel_logo,
+                                                       group_name,
+                                                       self._epg.domain,
+                                                       self._epg.show_logo))
                 file_handle.write("\n")
 
 

@@ -74,9 +74,9 @@ class Parser:
 
         category_name = None
         for line in (
-                line.strip()
-                for line in text_data.splitlines()
-                if line.strip() and not line.startswith("#")
+            line.strip()
+            for line in text_data.splitlines()
+            if line.strip() and not line.startswith("#")
         ):
             if line.endswith("#genre#"):
                 category_name = None
@@ -133,17 +133,19 @@ class Parser:
                 elif line.startswith(("http:", "https:")):
                     define_category = category_manager.get_category(group_title)
                     if (
-                            define_category is None
-                            or (use_ignore and category_manager.is_ignore(define_category))
-                            or not category_manager.exists(define_category)
+                        define_category is None
+                        or (use_ignore and category_manager.is_ignore(define_category))
+                        or not category_manager.exists(define_category)
                     ):
                         continue
-                    change_logo = category_manager.change_logo(define_category)
-                    tvg_new_logo = (
-                        channel_manager.epg.get_logo(tvg_logo)
-                        if change_logo
-                        else tvg_logo
-                    )
+                    do_channel_logo = category_manager.do_channel_logo(define_category)
+                    match do_channel_logo:
+                        case 0:
+                            tvg_new_logo = ''
+                        case 3:
+                            tvg_new_logo = channel_manager.epg.get_logo(tvg_logo)
+                        case _:
+                            tvg_new_logo = tvg_logo
                     channel_manager.add_channel(use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo)
         except Exception as e:
             logger.error(f"load channel m3u data failed: {e}")
