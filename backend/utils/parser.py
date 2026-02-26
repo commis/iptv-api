@@ -19,8 +19,8 @@ logger = LoggerFactory.get_logger(__name__)
 
 
 class Parser:
-    _txt_url = "http://ak3721.top/tv/json/template.txt"
-    _m3u_url = "http://ak3721.top/tv/json/template.m3u"
+    _txt_url = "https://ak3721.top/tv/json/template.txt"
+    _m3u_url = "https://ak3721.top/tv/json/template.m3u"
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 
     @staticmethod
