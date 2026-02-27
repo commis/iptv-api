@@ -14,7 +14,8 @@ class CategoryManager:
     管理分类与图标映射关系的单例类
     """
 
-    _channel_relations: Dict[str, Dict[str, object]] = {}
+    _channel_relations_fix: Dict[str, Dict[str, object]] = {}
+    _chanbel_compiled_patterns = []
 
     def __init__(self, config_path: str = None):
         self._lock = threading.RLock()
@@ -71,13 +72,18 @@ class CategoryManager:
 
     def _init_channel_relations(self):
         """初始化频道名称与分类的映射关系"""
+        pattern = r'[.*+?^$()\[\]{}|\\]'
         with self._lock:
             for category_name, category_info in self._categories.items():
                 category_info.update({"name": category_name})
                 category_info.update({"excludes": category_info.get("excludes", [])})
                 channel_list = category_info.get("channels", [])
                 for channel in channel_list:
-                    self._channel_relations[channel] = category_info
+                    if bool(re.search(pattern, channel)):
+                        regex_str = channel.replace("*", ".*").replace("?", ".")
+                        self._chanbel_compiled_patterns.append((re.compile(regex_str), category_info))
+                    else:
+                        self._channel_relations_fix[channel] = category_info
 
     def is_ignore(self, category: str):
         """判断是否为忽略的分类"""
@@ -143,11 +149,17 @@ class CategoryManager:
         """
         根据频道名称获取分类名称
         """
-        if channel_name in self._channel_relations:
-            return self._channel_relations[channel_name]
-        else:
-            info = self._categories.get(category_name)
-            return self._categories.get("未分类组") if info is None else info
+        if channel_name in self._channel_relations_fix:
+            return self._channel_relations_fix[channel_name]
+
+        # 模糊匹配
+        for regex_obj, value in self._chanbel_compiled_patterns:
+            if regex_obj.fullmatch(channel_name):
+                return value
+
+        # 没有对应的分类时，构造储一个新的分类
+        target_info = self._categories.get(category_name)
+        return target_info if target_info else self._categories.get("其他频道")
 
     def update_category(self, category_infos: Dict[str, Dict[str, object]]) -> None:
         """

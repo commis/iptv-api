@@ -51,9 +51,7 @@ class Parser:
                 if not url:
                     continue
 
-                category_info = category_manager.get_category_object(
-                    channel_name, category_stack
-                )
+                category_info = category_manager.get_category_object(channel_name, category_stack)
                 category_name = category_info.get("name")
                 if not category_manager.is_exclude(category_info, channel_name):
                     channel_list.append((category_name, channel_name, url))
