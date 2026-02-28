@@ -18,24 +18,15 @@ class UpdateCategoryRequest(BaseModel):
     excludes: List[str] = Field(default=[], description="排除频道列表")
 
 
-@router.get("/icons", summary="获取所有分类图标", response_model=Dict[str, object])
+@router.get("/list", summary="获取所有分类", response_model=Dict[str, object])
 def get_all_category_icons():
     """获取所有分类及其对应的图标"""
     return category_manager.list_categories()
 
 
-@router.get("/icons/{category_name}", summary="获取单个分类图标", response_model=Dict[str, object])
-def get_category_info(category_name: str):
-    """获取指定分类的图标"""
-    category_info = category_manager.get_category_info(category_name)
-    if category_info is None:
-        handle_exception(f"category '{category_name}' not found", status.HTTP_404_NOT_FOUND)
-    return category_info
-
-
-@router.post("/icons", summary="添加/更新分类图标", response_model=Dict[str, object])
+@router.post("/update", summary="添加/更新分类", response_model=Dict[str, object])
 def update_category_data(
-        request: UpdateCategoryRequest = Body(..., media_type="application/json", description="更新分类数据")):
+    request: UpdateCategoryRequest = Body(..., media_type="application/json", description="更新分类数据")):
     """
     添加或更新分类图标
     """
@@ -49,7 +40,16 @@ def update_category_data(
         handle_exception(str(e))
 
 
-@router.delete("/icons/{category_name}", summary="删除分类图标", response_model=Dict[str, object])
+@router.get("/{category_name}", summary="获取单个分类", response_model=Dict[str, object])
+def get_category_info(category_name: str):
+    """获取指定分类的图标"""
+    category_info = category_manager.get_category_info(category_name)
+    if category_info is None:
+        handle_exception(f"category '{category_name}' not found", status.HTTP_404_NOT_FOUND)
+    return category_info
+
+
+@router.delete("/{category_name}", summary="删除分类", response_model=Dict[str, object])
 def delete_category_icon(category_name: str):
     """
     删除指定分类的图标

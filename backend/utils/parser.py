@@ -58,7 +58,7 @@ class Parser:
 
         return channel_list
 
-    def load_remote_url_txt(self, url, use_ignore: bool = True):
+    def _load_remote_url_txt(self, url, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
@@ -97,10 +97,11 @@ class Parser:
                 except ValueError:
                     continue
 
-    def load_remote_url_m3u(self, url: str):
+    def load_remote_url_m3u(self, url: str, load_template: bool):
         try:
-            self._load_channel_m3u(self._m3u_url, False)
-            self.load_remote_url_txt(self._txt_url, False)
+            if load_template:
+                self._load_channel_m3u(self._m3u_url, False)
+                self._load_remote_url_txt(self._txt_url, False)
             self._load_channel_m3u(url, True)
             channel_manager.sort()
         except Exception as e:
@@ -148,8 +149,12 @@ class Parser:
         except Exception as e:
             logger.error(f"load channel m3u data failed: {e}")
 
-    def load_remote_url_migu(self, task_id, epg_file, rate_type):
+    def load_remote_url_migu(self, task_id, epg_file, rate_type, load_template: bool):
         try:
+            if load_template:
+                self._load_channel_m3u(self._m3u_url, False)
+                self._load_remote_url_txt(self._txt_url, False)
+
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
             migu_cates = self._migu_cate_list()
@@ -172,9 +177,7 @@ class Parser:
                     task_manager.update_task(task_id, processed=processed_counter.get_value())
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
-            # 处理自建频道
-            self._load_channel_m3u(self._m3u_url, False)
-            self.load_remote_url_txt(self._txt_url, False)
+
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")

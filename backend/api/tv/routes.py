@@ -105,63 +105,6 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
         handle_exception("batch check failed")
 
 
-@router.post("/update/txt", summary="自动从txt更新直播源", response_model=TaskResponse)
-def update_txt_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
-    """
-    自动更新直播源数据
-    """
-    try:
-        if request.url is None or request.epg is None:
-            raise Exception("url or epg is empty")
-
-        if request.is_clear:
-            channel_manager.clear()
-            task_manager.clear()
-
-        channel_manager.set_epg(
-            url=request.epg.url,
-            source=request.epg.source,
-            domain=request.epg.domain,
-            show_logo=request.epg.show_logo
-        )
-
-        for url in request.url:
-            parser_manager.load_remote_url_txt(url)
-        total_count = channel_manager.total_count()
-        task_id = task_manager.create_task(
-            url=request.url,
-            total=total_count,
-            type="update_live_sources",
-            description=f"output: {request.output}",
-        )
-
-        def run_update_live_task() -> None:
-            """后台运行的批量检查任务"""
-            try:
-                task_manager.update_task(task_id, status="running")
-                task = task_manager.get_task(task_id)
-
-                task_threads = 20
-                checker = ChannelChecker(task_threads, request.url)
-                success_count = checker.update_batch_live(
-                    threads=task_threads,
-                    task_status=task,
-                    check_m3u8_invalid=request.check_m3u8,
-                    output_file=request.output)
-                task.update({"status": "completed", "result": {"success": success_count}})
-            except Exception as re:
-                logger.error(f"update live sources task failed: {str(re)}", exc_info=True)
-                task_manager.update_task(task_id, status="error", error=str(re))
-
-        background_tasks.add_task(run_update_live_task)
-        return TaskResponse(data={"task_id": task_id})
-    except ValueError as ve:
-        handle_exception(str(ve), status.HTTP_400_BAD_REQUEST)
-    except Exception as e:
-        logger.error(f"update txt live sources request failed: {str(e)}", exc_info=True)
-        handle_exception("update txt live sources request failed")
-
-
 @router.post("/update/m3u", summary="自动从m3u更新直播源", response_model=TaskResponse)
 def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """
@@ -195,7 +138,8 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             try:
                 task_manager.update_task(task_id, status="running", processed=0)
                 for url in request.url:
-                    parser_manager.load_remote_url_m3u(url)
+                    parser_manager.load_remote_url_m3u(url, request.load_template)
+                    request.load_template = False
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 
