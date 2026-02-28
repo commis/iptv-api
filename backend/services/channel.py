@@ -14,8 +14,7 @@ PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
 
 class EpgBaseModel:
 
-    def __init__(
-        self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+    def __init__(self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
         self._url = url
         self._source = source
         self._domain = None if domain is None or domain == "" else domain

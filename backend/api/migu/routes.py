@@ -77,7 +77,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
         handle_exception("update migu live sources request failed")
 
 
-@router.get("/list", summary="获取所有频道列表")
+@router.get("/list", summary="获取常量定义的频道列表")
 def get_id_list():
     """获取系统中所有频道的列表"""
     try:

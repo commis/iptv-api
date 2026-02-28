@@ -157,22 +157,24 @@ class Parser:
 
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
-            migu_cates = self._migu_cate_list()
+            migu_cates = self._get_migu_cate_list()
             epg_file_bak = epg_file + ".bak"
             with open(epg_file_bak, "w", encoding="utf-8") as f:
                 f.write(
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
+                processed_pids = set()
                 processed_counter = Counter()
                 for cate in migu_cates:
                     cate_name = category_manager.get_category(cate.name)
-                    data_list = self._get_migu_cate_data(cate.vid, rate_type)
+                    data_list = self._get_migu_cate_data(processed_pids, cate.vid, rate_type)
                     for data in data_list:
                         tvg_id = category_manager.get_channel_id(data.name)
                         channel_name = category_manager.get_channel(data.name)
                         channel_manager.add_channel(True, cate_name, channel_name, data.url, tvg_id, data.pic)
                         self._get_migu_playback_data(cate_name, data, f)
+                        processed_pids.add(data.pid)
                         processed_counter.increment()
                     task_manager.update_task(task_id, processed=processed_counter.get_value())
                 f.write("</tv>\n")
@@ -182,7 +184,7 @@ class Parser:
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
 
-    def _migu_cate_list(self) -> List[MiguCateInfo]:
+    def _get_migu_cate_list(self) -> List[MiguCateInfo]:
         migu_cate_url = self._migu_url + "1ff892f2b5ab4a79be6e25b69d2f5d05"
         response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
         response.raise_for_status()
@@ -269,7 +271,7 @@ class Parser:
         except Exception as e:
             logger.error(f"get migu playback data failed: {e}")
 
-    def _get_migu_cate_data(self, pid: str, rate_type: int) -> List[MiguDataInfo]:
+    def _get_migu_cate_data(self, processed_pids, pid: str, rate_type: int) -> List[MiguDataInfo]:
         output_data = []
         try:
             migu_url = self._migu_url + pid
@@ -280,8 +282,11 @@ class Parser:
             body = json_cate_data.get("body", {})
             data_list = body.get("dataList", [])
             for data in data_list:
+                pid = data.get("pID")
+                if pid in processed_pids:
+                    continue
                 pics = data.get("pics", [])
-                migu_data_info = MiguDataInfo(data.get("name"), data.get("pID"), pics.get("highResolutionH"))
+                migu_data_info = MiguDataInfo(data.get("name"), pid, pics.get("highResolutionH"))
                 migu_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
                 if migu_play_url:
                     migu_data_info.set_url(migu_play_url)
