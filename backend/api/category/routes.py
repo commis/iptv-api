@@ -24,7 +24,7 @@ def get_all_category_icons():
     return category_manager.list_categories()
 
 
-@router.post("/update", summary="添加/更新分类", response_model=Dict[str, object])
+@router.post("/data", summary="添加/更新分类", response_model=Dict[str, object])
 def update_category_data(
     request: UpdateCategoryRequest = Body(..., media_type="application/json", description="更新分类数据")):
     """
