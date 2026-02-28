@@ -184,11 +184,11 @@ class CategoryManager:
         return self._category_map.get(category_name, category_name)
 
     def get_channel(self, channel_name: str) -> str:
-        channel_name = channel_name.replace("频道", "")
+        channel_name = channel_name.replace("频道", "").replace("广播电视台", "")
         return self._channel_name_map.get(channel_name, channel_name)
 
     def get_channel_id(self, channel_id: str) -> str:
-        channel_id = channel_id.replace("频道", "")
+        channel_id = channel_id.replace("频道", "").replace("广播电视台", "")
         return self._channel_id_map.get(channel_id, channel_id)
 
 
