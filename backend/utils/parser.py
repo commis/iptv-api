@@ -17,6 +17,25 @@ from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_s
 
 logger = LoggerFactory.get_logger(__name__)
 
+CLIENT_CONFIG = {
+    "h5": {
+        # 第11位字符
+        "keys": "yzwxcdabgh",
+        # 第5 8 14位字母对应下标0 1 3的字符
+        "words": ['', 'y', '0', 'w'],
+        # 第11位字符替换位置,从0开始
+        "thirdReplaceIndex": 1,
+        # 加密后链接后缀
+        "suffix": "&sv=10000&ct=www"
+    },
+    "android": {
+        "keys": "cdabyzwxkl",
+        "words": ['v', 'a', '0', 'a'],
+        "thirdReplaceIndex": 6,
+        "suffix": "&sv=10004&ct=android"
+    }
+}
+
 
 class Parser:
     _txt_url = "https://ak3721.top/tv/json/template.txt"
@@ -194,10 +213,14 @@ class Parser:
         body = json_cate_data.get("body", {})
         live_list = body.get("liveList", [])
         exclude_names = {"热门", "少儿"}
+        appended_cates = set()
         for live in live_list:
             name = live.get("name", "")
+            if name in appended_cates:
+                continue
             if name not in exclude_names:
                 output_data.append(MiguCateInfo(name, live.get("vomsID")))
+                appended_cates.add(name)
 
         return output_data
 
@@ -216,9 +239,7 @@ class Parser:
             logger.error(f"fetch migu playback data failed: {e}")
 
     def _get_migu_playback_data_cctv(self, name, date_str, tv_name, fd):
-        fetch_url = (
-            f"https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d={date_str}&c={tv_name}"
-        )
+        fetch_url = f"https://api.cntv.cn/epg/epginfo3?serviceId=shiyi&d={date_str}&c={tv_name}"
         try:
             resp = requests.get(fetch_url, timeout=Constants.REQUEST_TIMEOUT)
             resp.raise_for_status()
@@ -297,7 +318,11 @@ class Parser:
             return output_data
 
     def get_migu_video_url(self, pname, pid, rate_type: int = 3) -> str:
-        url = self._getAndroidURL720p(pname, pid, rate_type)
+        if rate_type >= 3 and (not Constants.MIGU_USERID or not Constants.MIGU_TOKEN):
+            url = self._getAndroidURL720p(pname, pid, rate_type)
+        else:
+            url = self._getAndroidURL(pname, pid, rate_type)
+
         if not url:
             return url
 
@@ -311,14 +336,14 @@ class Parser:
                     url = location
                     break
             except Exception as e:
-                logger.error(f"请求重试失败: {str(e)}")
+                logger.error(f"请求重试失败: {pname}, {str(e)}")
 
             if retry < 5:
                 time.sleep(0.15)
 
         return url
 
-    def _getAndroidURL720p(self, pname, pid, rate_type, enableHDR: bool = True, enableH265: bool = True):
+    def _getAndroidURL720p(self, pname, pid, rate_type: int = 3, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"
         appVersionID = f"{appVersion}-99000-201600010010028"
         timestamp = str(round(time.time() * 1000))
@@ -348,10 +373,8 @@ class Parser:
         enableH265Str = "&h265N=true" if enableH265 else ""
 
         baseURL = "https://play.miguvideo.com/playurl/v1/play/playurl"
-        params = (
-            f"?sign={sign}&rateType={rate_type}&contId={pid}&timestamp={timestamp}"
-            f"&salt={salt}&flvEnable=true&super4k=true{enableH265Str}{enableHDRStr}"
-        )
+        params = (f"?sign={sign}&rateType={rate_type}&contId={pid}&timestamp={timestamp}"
+                  f"&salt={salt}&flvEnable=true&super4k=true{enableH265Str}{enableHDRStr}")
         full_url = baseURL + params
 
         playUrl = ""
@@ -373,7 +396,7 @@ class Parser:
         return self._getddCalcuURL720p(playUrl, pid)
 
     def _getddCalcuURL720p(self, puDataURL: str, programId: str) -> str:
-        if puDataURL is None or programId is None:
+        if not puDataURL or not programId:
             return ""
 
         try:
@@ -386,7 +409,7 @@ class Parser:
         return f"{puDataURL}&ddCalcu={ddCalcu}&sv=10004&ct=android"
 
     def _getddCalcu720p(self, puData, programId) -> str:
-        if puData is None or programId is None:
+        if not puData or not programId:
             return ""
 
         keys = "cdabyzwxkl"
@@ -410,6 +433,121 @@ class Parser:
                     pass
 
         return "".join(dd_calcu)
+
+    def _getAndroidURL(self, pname, pid, rate_type: int, enableHDR: bool = True, enableH265: bool = True):
+        appVersion = "2600037000"
+        appVersionID = f"{appVersion}-99000-200300220100002"
+        timestamp = str(round(time.time() * 1000))
+
+        headers = {
+            "AppVersion": appVersion,
+            "TerminalId": "android",
+            "X-UP-CLIENT-CHANNEL-ID": appVersionID,
+        }
+        if rate_type != 2 and Constants.MIGU_USERID and Constants.MIGU_TOKEN:
+            headers["UserId"] = Constants.MIGU_USERID
+            headers["UserToken"] = Constants.MIGU_TOKEN
+
+        # 排除 CCTV5 和 CCTV5+
+        exclude_pids = {"641886683", "641886773"}
+        if pid not in exclude_pids:
+            headers["appCode"] = "miguvideo_default_android"
+
+        input_str = timestamp + pid + appVersion[:8]
+        md5 = getStringMD5(input_str)
+
+        salt = 1230024
+        suffix = f"3ce941cc3cbc40528bfd1c64f9fdf6c0migu0123"
+        sign = getStringMD5(md5 + suffix)
+
+        enableHDRStr = "&4kvivid=true&2Kvivid=true&vivid=2" if enableHDR else ""
+        enableH265Str = "&h265N=true" if enableH265 else ""
+
+        baseURL = "https://play.miguvideo.com/playurl/v1/play/playurl"
+        params = (f"?sign={sign}&rateType={rate_type}&contId={pid}&timestamp={timestamp}"
+                  f"&salt={salt}&flvEnable=true&super4k=true"
+                  f"{"&ott=true" if rate_type == 9 else ""}"
+                  f"{enableH265Str}{enableHDRStr}")
+
+        playUrl = ""
+        try:
+            resp = requests.get(baseURL + params, headers=headers, timeout=Constants.REQUEST_TIMEOUT)
+            resp.raise_for_status()
+            resp_json = resp.json()
+            if resp_json.get("rid") == 'TIPS_NEED_MEMBER':
+                params = (f"?sign={sign}&rateType=3&contId={pid}&timestamp={timestamp}"
+                          f"&salt={salt}&flvEnable=true&super4k=true{enableH265Str}{enableHDRStr}")
+                resp = requests.get(baseURL + params, headers=headers, timeout=Constants.REQUEST_TIMEOUT)
+                resp.raise_for_status()
+                resp_json = resp.json()
+            respBody = resp_json.get("body", {})
+        except Exception as e:
+            logger.error("fetch video url failed: ", str(e))
+            return playUrl
+
+        url_info = respBody.get("urlInfo")
+        if not (url_info and (playUrl := url_info.get("url"))):
+            logger.warning(f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]")
+            return playUrl
+
+        pid = respBody.get("content", {}).get("contId", pid)
+        return self._getddCalcuURL(playUrl, pid, "android", rate_type)
+
+    def _getddCalcuURL(self, puDataURL: str, programId: str, client_type: str, rate_type: int) -> str:
+        if not puDataURL or not programId:
+            return ""
+
+        if client_type not in ["android", "h5"]:
+            return ""
+
+        try:
+            puData = puDataURL.split("&puData=")[1]
+        except IndexError:
+            logger.error("URL中未找到puData参数")
+            return ""
+
+        ddCalcu = self._getddCalcu(puData, programId, client_type, rate_type)
+        suffix = CLIENT_CONFIG[client_type]["suffix"]
+        return f"{puDataURL}&ddCalcu={ddCalcu}{suffix}"
+
+    def _getddCalcu(self, puData, programId, client_type: str, rate_type: int) -> str:
+        if not puData or not programId:
+            return ""
+
+        config = CLIENT_CONFIG.get(client_type)
+        keys = config["keys"]
+        words = config["words"]
+        third_replace_index = config["thirdReplaceIndex"]
+
+        if Constants.MIGU_USERID:
+            words1 = CLIENT_CONFIG["android"]["keys"][int(Constants.MIGU_USERID[7])]
+            CLIENT_CONFIG["android"]["words"][0] = words1
+            CLIENT_CONFIG["h5"]["words"][0] = words1
+
+        if client_type == "android" and rate_type == 2:
+            words[0] = "v"
+
+        if 3 < len(Constants.MIGU_USERID) <= 8:
+            words[0] = "e"
+
+        ddCalcu = []
+        puData_len = len(puData)
+        date_prefix = int(datetime.now().strftime("%Y%m%d")[0])
+        for i in range(puData_len // 2):
+            ddCalcu.append(puData[puData_len - i - 1])
+            ddCalcu.append(puData[i])
+            match i:
+                case 1:
+                    ddCalcu.append(words[i - 1])
+                case 2:
+                    ddCalcu.append(keys[date_prefix])
+                case 3:
+                    prog_idx = int(programId[third_replace_index])
+                    ddCalcu.append(keys[prog_idx])
+                case 4:
+                    ddCalcu.append(words[i - 1])
+
+        return "".join(ddCalcu)
 
 
 parser_manager = Parser()
