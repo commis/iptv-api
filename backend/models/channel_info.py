@@ -92,9 +92,9 @@ class ChannelInfo:
             self.urls.discard(url_info)
 
     def get_txt(self):
-        tvg_id = f"{self.id}" if self.id != "" else f"{self.name}"
+        tvg_name = f'{self.name}" ' if self.name else f"{self.id}"
         return "\n".join(
-            f"{tvg_id},{url.url}"
+            f"{tvg_name},{url.url}"
             for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
         )
 
@@ -102,8 +102,8 @@ class ChannelInfo:
         if not title:
             title = self.title
 
-        tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
-        tvg_name = f'tvg-name="{self.name}" ' if self.logo and self.id == "" else ""
+        tvg_id = f'tvg-id="{self.id}" ' if self.id else ""
+        tvg_name = f'tvg-name="{self.name}" ' if self.logo and not self.id else ""
 
         # do_channel_logo（0：关闭，1：显示不替换，3：显示且替换）
         match do_channel_logo:

@@ -80,7 +80,7 @@ class CategoryManager:
                 channel_list = category_info.get("channels", [])
                 for channel in channel_list:
                     if bool(re.search(pattern, channel)):
-                        regex_str = channel.replace("*", ".*").replace("?", ".")
+                        regex_str = channel.replace("*", ".*")
                         self._chanbel_compiled_patterns.append((re.compile(regex_str), category_info))
                     else:
                         self._channel_relations_fix[channel] = category_info
