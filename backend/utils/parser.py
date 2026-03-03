@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import List
 
 import requests
+import urllib3
 
 from api.tv.converter import LiveConverter
 from core.constants import Constants
@@ -16,6 +17,7 @@ from utils.encry_util import getStringMD5
 from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_str
 
 logger = LoggerFactory.get_logger(__name__)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 CLIENT_CONFIG = {
     "h5": {
@@ -45,7 +47,7 @@ class Parser:
     @staticmethod
     def get_video_playinfo(url: str):
         try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
             content = response.text.strip()
 
@@ -125,7 +127,7 @@ class Parser:
 
     def _load_remote_url_txt(self, url, use_ignore: bool = True):
         try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
             self.load_channel_txt(response.text.strip(), use_ignore)
         except Exception as e:
@@ -143,7 +145,7 @@ class Parser:
 
     def _load_channel_m3u(self, url: str, use_ignore: bool = True):
         try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
             m3u_data = response.text.strip()
 
@@ -343,7 +345,7 @@ class Parser:
 
         for retry in range(6):
             try:
-                resp = requests.get(url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT)
+                resp = requests.get(url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT, verify=False)
                 location = resp.headers.get("Location", "")
                 if not location:
                     continue

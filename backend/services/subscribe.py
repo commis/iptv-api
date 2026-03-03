@@ -34,7 +34,7 @@ class SubscribeService:
         url_encoded_input_url = url_encode(input_url)
         url = f"{self._sub_url}?target=v2ray&url={url_encoded_input_url}"
         try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
             decoded_text = base64_decode(response.text)
             return decoded_text
@@ -46,7 +46,7 @@ class SubscribeService:
         # url_encoded_ssrsub_text = url_encode(ssrsub_text)
         url = f"{self._sub_url}?target=clash&url=${ssrsub_text}&config={self._config}&{self._params}"
         try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
             lines = response.text.splitlines()
             filtered_lines = [self._replace(line) for line in lines if self._should_include_line(line, False)]

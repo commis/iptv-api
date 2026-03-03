@@ -80,7 +80,7 @@ class ChannelChecker:
             if content_length and int(content_length) < 1024:
                 return False
 
-            with requests.get(url, stream=True, timeout=(5, timeout)) as partial_response:
+            with requests.get(url, stream=True, timeout=(5, timeout), verify=False) as partial_response:
                 partial_response.raise_for_status()
                 iterator = partial_response.iter_content(chunk_size=32)
                 try:
