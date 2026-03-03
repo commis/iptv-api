@@ -1,4 +1,7 @@
-from fastapi import APIRouter, BackgroundTasks, Path
+from typing import Optional
+
+from fastapi import APIRouter, BackgroundTasks, Path, Query
+from fastapi import Response
 from fastapi.encoders import jsonable_encoder
 from starlette import status
 
@@ -10,7 +13,7 @@ from services.channel import channel_manager
 from services.checker import ChannelChecker
 from services.task import task_manager
 from utils.handler import handle_exception
-from utils.parser import parser_manager
+from utils.parser import parser_manager, Parser
 
 router = APIRouter(prefix="/migu", tags=["MIGU工具"])
 logger = LoggerFactory.get_logger(__name__)
@@ -87,11 +90,26 @@ def get_id_list():
         handle_exception(f"获取频道列表失败: {str(e)}")
 
 
-@router.get("/{id}", summary="解析单个频道播放地址")
-def parse_channel_url(id: str = Path(..., description="频道ID，例如：cctv1")):
+@router.get("/{id}", summary="获取单个频道播放地址")
+def parse_channel_url(
+    id: str = Path(..., description="频道ID，例如：cctv1"),
+    type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
+):
     """根据任务ID获取任务详情"""
-    channel_id = Constants.get_migu_cid(id)
-    chanel_url = parser_manager.get_migu_video_url("Null", channel_id)
-    if chanel_url:
-        return MiguResponse(url=chanel_url, data={"id": channel_id})
-    return MiguResponse(url=chanel_url, code=101, message="生成播放地址失败", data={"id": channel_id})
+    channel_id = id  # Constants.get_migu_cid(id)
+    channel_name = "Null"
+    try:
+        chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id)
+        match type:
+            case "json":
+                if chanel_url:
+                    return MiguResponse(url=chanel_url, data={"id": channel_id, "name": channel_name})
+            case _:
+                fixed_content = Parser.get_video_playinfo(chanel_url)
+                return Response(
+                    content=fixed_content,
+                    media_type="application/vnd.apple.mpegurl"
+                )
+    except Exception as e:
+        logger.error(f"get {channel_id} video failed: {str(e)}", exc_info=True)
+        return MiguResponse(url="", code=101, message="生成播放地址失败", data={"id": channel_id})

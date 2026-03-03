@@ -43,6 +43,21 @@ class Parser:
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 
     @staticmethod
+    def get_video_playinfo(url: str):
+        try:
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response.raise_for_status()
+            content = response.text.strip()
+
+            # 处理 M3U8 内容
+            fixed_lines = []
+            for line in content.splitlines():
+                fixed_lines.append(line)
+            return "\n".join(fixed_lines)
+        except Exception:
+            return None
+
+    @staticmethod
     def get_channel_data(text_data: str) -> list:
         """
         将用户提供的频道数据文本解析为 [(类别, 子类型, URL), ...] 格式的元组列表
@@ -77,14 +92,6 @@ class Parser:
 
         return channel_list
 
-    def _load_remote_url_txt(self, url, use_ignore: bool = True):
-        try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
-            response.raise_for_status()
-            self.load_channel_txt(response.text.strip(), use_ignore)
-        except Exception as e:
-            logger.error(f"access remote url data failed: {e}")
-
     @staticmethod
     def load_channel_txt(text_data, use_ignore):
         from services import category_manager
@@ -115,6 +122,14 @@ class Parser:
                         channel_manager.add_channel(True, category_name, channel_name, url, subgenre)
                 except ValueError:
                     continue
+
+    def _load_remote_url_txt(self, url, use_ignore: bool = True):
+        try:
+            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT)
+            response.raise_for_status()
+            self.load_channel_txt(response.text.strip(), use_ignore)
+        except Exception as e:
+            logger.error(f"access remote url data failed: {e}")
 
     def load_remote_url_m3u(self, url: str, load_template: bool):
         try:
