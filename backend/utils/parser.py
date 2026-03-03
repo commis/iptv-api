@@ -1,5 +1,6 @@
 import os
 import random
+import re
 import time
 from datetime import datetime
 from typing import List
@@ -186,6 +187,63 @@ class Parser:
             logger.error(f"load channel m3u data failed: {e}")
 
     def load_remote_url_migu(self, task_id, epg_file, rate_type, load_template: bool):
+
+        def process_channel_TV(processed_counter, migu_cate_list, epg_f):
+            processed_pids = set()
+            for cate in migu_cate_list:
+                cate_name = category_manager.get_category(cate.name)
+                data_list = self._get_migu_cate_data(processed_pids, cate.vid, rate_type)
+                for data in data_list:
+                    tvg_id = category_manager.get_channel_id(data.name)
+                    channel_name = category_manager.get_channel(data.name)
+                    channel_manager.add_channel(True, cate_name, channel_name, data.url, tvg_id, data.pic)
+                    self._get_migu_playback_data(cate_name, data, epg_f)
+                    processed_pids.add(data.pid)
+                    processed_counter.increment()
+                task_manager.update_task(task_id, processed=processed_counter.get_value())
+
+        def process_channel_PE(processed_counter, migu_sport_list, epg_f):
+            for (date_str, relative_date, data_list) in migu_sport_list:
+                for data in data_list:
+                    mgdb_id = data.get("mgdbId")
+                    pk_info_title = data.get("pkInfoTitle")
+                    teams = data.get("confrontTeams")
+                    if teams and len(teams) >= 2:
+                        pk_info_title = f"{teams[0].get('name')}VS{teams[1].get('name')}"
+                    try:
+                        url = f"https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/basic-data/{mgdb_id}/miguvideo"
+                        body = self._get_url_body(url)
+
+                        # 1. 比赛已结束
+                        now_ms = int(time.time() * 1000)
+                        if body.get("endTime", 0) < now_ms:
+                            self._get_migu_sport_overed(
+                                processed_counter, task_id,
+                                relative_date, data, body, pk_info_title, mgdb_id)
+                            continue
+
+                        # 2. 比赛进行中或未开始
+                        live_list = body.get("multiPlayList", {}).get("liveList", [])
+                        for live in live_list:
+                            name = live.get("name", "")
+                            start_time_str = live.get("startTimeStr")
+                            if re.search(r".*集锦.*", name) or not start_time_str:
+                                continue
+
+                            competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {start_time_str[11:16]}"
+                            migu_video_play_url = self.get_migu_video_url(competition_desc, live.get("pID"))
+                            if migu_video_play_url:
+                                channel_manager.add_channel(True, relative_date,
+                                                            competition_desc,
+                                                            migu_video_play_url,
+                                                            pk_info_title,
+                                                            data.get("competitionLogo"))
+                                processed_counter.increment()
+                        task_manager.update_task(task_id, processed=processed_counter.get_value())
+
+                    except Exception as e:
+                        logger.error(f"process PE data failed: {e}")
+
         try:
             if load_template:
                 self._load_channel_m3u(self._m3u_url, False)
@@ -193,26 +251,18 @@ class Parser:
 
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
-            migu_cates = self._get_migu_cate_list()
             epg_file_bak = epg_file + ".bak"
+
+            counter = Counter()
+            migu_cates = self._get_migu_cate_list()
+            migo_sports = self._get_migu_sports()
             with open(epg_file_bak, "w", encoding="utf-8") as f:
                 f.write(
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
-                processed_pids = set()
-                processed_counter = Counter()
-                for cate in migu_cates:
-                    cate_name = category_manager.get_category(cate.name)
-                    data_list = self._get_migu_cate_data(processed_pids, cate.vid, rate_type)
-                    for data in data_list:
-                        tvg_id = category_manager.get_channel_id(data.name)
-                        channel_name = category_manager.get_channel(data.name)
-                        channel_manager.add_channel(True, cate_name, channel_name, data.url, tvg_id, data.pic)
-                        self._get_migu_playback_data(cate_name, data, f)
-                        processed_pids.add(data.pid)
-                        processed_counter.increment()
-                    task_manager.update_task(task_id, processed=processed_counter.get_value())
+                process_channel_TV(counter, migu_cates, f)
+                process_channel_PE(counter, migo_sports, f)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
 
@@ -343,6 +393,7 @@ class Parser:
         if not url:
             return url
 
+        # 获取 302 URL
         for retry in range(6):
             try:
                 resp = requests.get(url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT, verify=False)
@@ -369,10 +420,8 @@ class Parser:
             "AppVersion": appVersion,
             "TerminalId": "android",
             "X-UP-CLIENT-CHANNEL-ID": appVersionID,
+            "ClientId": getStringMD5(timestamp),
         }
-        # if Constants.MIGU_USERID and Constants.MIGU_TOKEN:
-        #     headers["UserId"] = Constants.MIGU_USERID
-        #     headers["UserToken"] = Constants.MIGU_TOKEN
 
         # 排除 CCTV5 和 CCTV5+
         exclude_pids = {"641886683", "641886773"}
@@ -406,7 +455,7 @@ class Parser:
 
         url_info = respBody.get("urlInfo")
         if not (url_info and (playUrl := url_info.get("url"))):
-            logger.warning(f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]")
+            logger.debug(f"channel data [{pname}, {pid}], resp [{resp_json.get("code")}, {resp_json.get("rid")}]")
             return playUrl
 
         pid = respBody.get("content", {}).get("contId", pid)
@@ -565,6 +614,70 @@ class Parser:
                     ddCalcu.append(words[i - 1])
 
         return "".join(ddCalcu)
+
+    def _get_url_body(self, url):
+        response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
+        response.raise_for_status()
+        resp_json = response.json()
+        return resp_json.get("body", {})
+
+    def _get_migu_sports(self):
+        url = "https://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo/"
+        try:
+            resp_body = self._get_url_body(url)
+
+            data_list = []
+            today_str = datetime.now().strftime("%Y%m%d")
+            days = resp_body.get("days", [])
+            for i in range(1, min(4, len(days))):
+                date_val = days[i]
+                if date_val == today_str:
+                    relative_date = "体育-今天"
+                elif int(date_val) > int(today_str):
+                    relative_date = "体育-明天"
+                else:
+                    relative_date = "体育-昨天"
+
+                match_list = resp_body.get("matchList", {}).get(date_val, [])
+                data_list.append((date_val, relative_date, match_list))
+
+            return data_list
+        except Exception as e:
+            return None
+
+    def _get_migu_sport_overed(self, processed_counter, task_id, relative_date, data, body, pk_info_title, mgdb_id):
+        try:
+            url = f"http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/{mgdb_id}/2/miguvideo"
+            relay_body = self._get_url_body(url)
+            replay_list = relay_body.get("replayList")
+            if not replay_list:
+                replay_list = body.get("multiPlayList", {}).get("replayList")
+            if not replay_list:
+                return
+
+            for replay in replay_list:
+                name = replay.get("name", "")
+                if re.search(r".*集锦|训练.*", name):
+                    continue
+                if re.search(r".*回放|赛.*", name):
+                    time_str = body.get("keyword", "")[7:]
+                    pre_list = body.get("multiPlayList", {}).get("preList", [])
+                    if pre_list:
+                        start_time_str = pre_list[-1].get("startTimeStr")
+                        if start_time_str:
+                            time_str = start_time_str[11:16]
+                    competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {time_str}"
+                    migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
+                    if migu_video_play_url:
+                        channel_manager.add_channel(True, relative_date,
+                                                    competition_desc,
+                                                    migu_video_play_url,
+                                                    pk_info_title,
+                                                    data.get("competitionLogo"))
+                        processed_counter.increment()
+            task_manager.update_task(task_id, processed=processed_counter.get_value())
+        except Exception as e:
+            logger.error(f"get migo sport overed [{pk_info_title}] failed,  {str(e)}")
 
 
 parser_manager = Parser()
