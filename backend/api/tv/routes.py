@@ -38,7 +38,7 @@ def clean_channel_data() -> Response:
 def check_single_channel(request: SingleCheckRequest) -> Response:
     """检查单个电视频道并返回解析结果"""
     try:
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg()
 
         url_info = ChannelUrl(request.url)
         channel_info = ChannelInfo(request.extract_id(request.url))
@@ -67,7 +67,7 @@ def check_batch_channels(request: BatchCheckRequest, background_tasks: Backgroun
             channel_manager.clear()
             task_manager.clear()
 
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg()
 
         task_id = task_manager.create_task(
             url=request.url,
@@ -204,7 +204,7 @@ def convert_txt_to_m3u(
         if not txt_data.strip():
             handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
 
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg(url="", source="", domain="")
 
         converter = LiveConverter()
         result = converter.txt_to_m3u(txt_data)
@@ -229,7 +229,7 @@ def convert_m3u_to_txt(
         if not m3u_data.strip():
             handle_exception("invalidate input: empty m3u text", status.HTTP_400_BAD_REQUEST)
 
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg()
 
         converter = LiveConverter()
         result = converter.m3u_to_txt(m3u_data)
@@ -255,7 +255,7 @@ def merge_live_sources(
         if not txt_data.strip():
             handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
 
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg()
 
         live_data = Parser.get_channel_data(txt_data)
         merger = LiveMerger(live_data)
@@ -285,7 +285,7 @@ def check_live_sources(
             channel_manager.clear()
             task_manager.clear()
 
-        channel_manager.set_epg(url="", source="", domain="", show_logo=False, rename_cid=False)
+        channel_manager.set_epg()
 
         Parser.load_channel_txt(txt_data)
         total_count = channel_manager.total_count()

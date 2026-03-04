@@ -54,7 +54,7 @@ class EpgRequest(BaseModel):
                                   description="直播源回放查找参数")
     domain: Optional[str] = Field(default="", description="LOGO文件域名")
     show_logo: Optional[bool] = Field(default=True, description="全局开关，是否打开Logo显示")
-    rename_cid: Optional[bool] = Field(default=True, description="是否替换Channel ID")
+    rename_cid: Optional[bool] = Field(default=True, description="是否替换图片后缀")
 
 
 class UpdateLiveRequest(BaseModel):

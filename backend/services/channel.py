@@ -65,7 +65,12 @@ class ChannelBaseModel:
     def epg(self):
         return self._epg
 
-    def set_epg(self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+    def set_epg(self,
+                url: str = "",
+                source: str = "",
+                domain: str = "",
+                show_logo: bool = False,
+                rename_cid: bool = False):
         self._epg = EpgBaseModel(url, source, domain, show_logo, rename_cid)
 
     def clear(self):

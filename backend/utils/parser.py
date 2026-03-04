@@ -96,7 +96,7 @@ class Parser:
         return channel_list
 
     @staticmethod
-    def load_channel_txt(text_data, use_ignore):
+    def load_channel_txt(text_data, use_ignore: bool = True):
         from services import category_manager
 
         category_name = None
@@ -192,11 +192,12 @@ class Parser:
             processed_pids = set()
             for cate in migu_cate_list:
                 cate_name = category_manager.get_category(cate.name)
-                data_list = self._get_migu_cate_data(processed_pids, cate.vid, rate_type)
+                data_list = self._get_migu_cate_data(processed_pids, cate_name, cate.vid, rate_type)
                 for data in data_list:
                     tvg_id = category_manager.get_channel_id(data.name)
                     channel_name = category_manager.get_channel(data.name)
-                    channel_manager.add_channel(True, cate_name, channel_name, data.url, tvg_id, data.pic)
+                    # 在get_migu_cate_data函数内部已经做了过滤，古这里不用做重复的过滤了
+                    channel_manager.add_channel(False, cate_name, channel_name, data.url, tvg_id, data.pic)
                     self._get_migu_playback_data(cate_name, data, epg_f)
                     processed_pids.add(data.pid)
                     processed_counter.increment()
@@ -231,9 +232,13 @@ class Parser:
                                 continue
 
                             competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {start_time_str[11:16]}"
+                            # 提前做过滤处理，减少获取URL的调用
+                            category_info = category_manager.get_category_object(competition_desc, relative_date)
+                            if category_info and category_manager.is_exclude(category_info, competition_desc):
+                                continue
                             migu_video_play_url = self.get_migu_video_url(competition_desc, live.get("pID"))
                             if migu_video_play_url:
-                                channel_manager.add_channel(True, relative_date,
+                                channel_manager.add_channel(False, relative_date,
                                                             competition_desc,
                                                             migu_video_play_url,
                                                             pk_info_title,
@@ -255,17 +260,16 @@ class Parser:
 
             counter = Counter()
             migu_cates = self._get_migu_cate_list()
-            migo_sports = self._get_migu_sports()
+            migu_sports = self._get_migu_sport_list()
             with open(epg_file_bak, "w", encoding="utf-8") as f:
                 f.write(
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
                 process_channel_TV(counter, migu_cates, f)
-                process_channel_PE(counter, migo_sports, f)
+                process_channel_PE(counter, migu_sports, f)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
-
             channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
@@ -359,8 +363,9 @@ class Parser:
         except Exception as e:
             logger.error(f"get migu playback data failed: {e}")
 
-    def _get_migu_cate_data(self, processed_pids, pid: str, rate_type: int) -> List[MiguDataInfo]:
+    def _get_migu_cate_data(self, processed_pids, category_name, pid: str, rate_type: int) -> List[MiguDataInfo]:
         output_data = []
+
         try:
             migu_url = self._migu_url + pid
             response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT)
@@ -374,10 +379,15 @@ class Parser:
                 if pid in processed_pids:
                     continue
                 pics = data.get("pics", [])
-                migu_data_info = MiguDataInfo(data.get("name"), pid, pics.get("highResolutionH"))
-                migu_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
-                if migu_play_url:
-                    migu_data_info.set_url(migu_play_url)
+                channel_name = data.get("name")
+                # 提前做过滤处理，减少获取URL的调用
+                category_info = category_manager.get_category_object(channel_name, category_name)
+                if category_info and category_manager.is_exclude(category_info, channel_name):
+                    continue
+                migu_data_info = MiguDataInfo(channel_name, pid, pics.get("highResolutionH"))
+                migu_video_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
+                if migu_video_play_url:
+                    migu_data_info.set_url(migu_video_play_url)
                     output_data.append(migu_data_info)
             return output_data
         except Exception as e:
@@ -621,7 +631,7 @@ class Parser:
         resp_json = response.json()
         return resp_json.get("body", {})
 
-    def _get_migu_sports(self):
+    def _get_migu_sport_list(self):
         url = "https://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo/"
         try:
             resp_body = self._get_url_body(url)
@@ -667,9 +677,13 @@ class Parser:
                         if start_time_str:
                             time_str = start_time_str[11:16]
                     competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {time_str}"
+                    # 提前做过滤处理，减少获取URL的调用
+                    category_info = category_manager.get_category_object(competition_desc, relative_date)
+                    if category_info and category_manager.is_exclude(category_info, competition_desc):
+                        continue
                     migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
                     if migu_video_play_url:
-                        channel_manager.add_channel(True, relative_date,
+                        channel_manager.add_channel(False, relative_date,
                                                     competition_desc,
                                                     migu_video_play_url,
                                                     pk_info_title,
