@@ -46,21 +46,6 @@ class Parser:
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
 
     @staticmethod
-    def get_video_playinfo(url: str):
-        try:
-            response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
-            response.raise_for_status()
-            content = response.text.strip()
-
-            # 处理 M3U8 内容
-            fixed_lines = []
-            for line in content.splitlines():
-                fixed_lines.append(line)
-            return "\n".join(fixed_lines)
-        except Exception:
-            return None
-
-    @staticmethod
     def get_channel_data(text_data: str) -> list:
         """
         将用户提供的频道数据文本解析为 [(类别, 子类型, URL), ...] 格式的元组列表
@@ -395,31 +380,34 @@ class Parser:
             return output_data
 
     def get_migu_video_url(self, pname, pid, rate_type: int = 3) -> str:
+        def _get302URL(source_url):
+            target_url = ""
+            for retry in range(6):
+                try:
+                    resp = requests.get(source_url,
+                                        allow_redirects=False,
+                                        timeout=Constants.REQUEST_TIMEOUT,
+                                        verify=False)
+                    location = resp.headers.get("Location", "")
+                    if not location:
+                        continue
+                    if not location.startswith("http://bofang"):
+                        target_url = location
+                        break
+                except Exception as e:
+                    logger.error(f"请求重试失败: {pname}, {str(e)}")
+
+                if retry < 5:
+                    time.sleep(0.15)
+
+            return target_url
+
         if rate_type >= 3 and (not Constants.MIGU_USERID or not Constants.MIGU_TOKEN):
             url = self._getAndroidURL720p(pname, pid, rate_type)
         else:
             url = self._getAndroidURL(pname, pid, rate_type)
 
-        if not url:
-            return url
-
-        # 获取 302 URL
-        for retry in range(6):
-            try:
-                resp = requests.get(url, allow_redirects=False, timeout=Constants.REQUEST_TIMEOUT, verify=False)
-                location = resp.headers.get("Location", "")
-                if not location:
-                    continue
-                if not location.startswith("http://bofang"):
-                    url = location
-                    break
-            except Exception as e:
-                logger.error(f"请求重试失败: {pname}, {str(e)}")
-
-            if retry < 5:
-                time.sleep(0.15)
-
-        return url
+        return _get302URL(url) if url else ""
 
     def _getAndroidURL720p(self, pname, pid, rate_type: int = 3, enableHDR: bool = True, enableH265: bool = True):
         appVersion = "2600034600"

@@ -46,7 +46,7 @@ class Constants:
     def cvt_exist(cls, key: str):
         return key in cls._MIGU_CID_MAP
 
-    MIGU_USERID = os.getenv("muserId")
+    MIGU_USERID = os.getenv("muserid")
     MIGU_TOKEN = os.getenv("mtoken")
 
     _MIGU_IDS = {

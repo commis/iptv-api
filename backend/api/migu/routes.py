@@ -1,9 +1,9 @@
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Path, Query
-from fastapi import Response
 from fastapi.encoders import jsonable_encoder
 from starlette import status
+from starlette.responses import RedirectResponse
 
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
@@ -13,7 +13,7 @@ from services.channel import channel_manager
 from services.checker import ChannelChecker
 from services.task import task_manager
 from utils.handler import handle_exception
-from utils.parser import parser_manager, Parser
+from utils.parser import parser_manager
 
 router = APIRouter(prefix="/migu", tags=["MIGU工具"])
 logger = LoggerFactory.get_logger(__name__)
@@ -100,17 +100,16 @@ def parse_channel_url(
     channel_id = id  # Constants.get_migu_cid(id)
     channel_name = "Null"
     try:
-        chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id)
-        match type:
-            case "json":
-                if chanel_url:
+        chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id, rate_type=3)
+        if chanel_url:
+            match type:
+                case "json":
                     return MiguResponse(url=chanel_url, data={"id": channel_id, "name": channel_name})
-            case _:
-                fixed_content = Parser.get_video_playinfo(chanel_url)
-                return Response(
-                    content=fixed_content,
-                    media_type="application/vnd.apple.mpegurl"
-                )
+                case _:
+                    return RedirectResponse(url=chanel_url, status_code=302, headers={
+                        'Content-Type': 'application/json;charset=UTF-8'
+                    })
     except Exception as e:
         logger.error(f"get {channel_id} video failed: {str(e)}", exc_info=True)
-        return MiguResponse(url="", code=101, message="生成播放地址失败", data={"id": channel_id})
+
+    return MiguResponse(url="", code=101, message="生成播放地址失败", data={"id": channel_id})
