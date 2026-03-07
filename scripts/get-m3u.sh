@@ -28,7 +28,7 @@ upload_file() {
 update_api() {
   cd "${PROJECT_DIR}/backend" && git pull
   cd "${PROJECT_DIR}/spider" && git pull
-  bash "/home/DevTools/linux-develop/docker-app/tvbox/docker-migu.sh" run
+  bash "/home/DevTools/linux-develop/app/tvbox/docker-migu.sh" run
   sleep 10
 }
 
