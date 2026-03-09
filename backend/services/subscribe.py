@@ -6,7 +6,7 @@ import requests
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from core.singleton import singleton
-from utils.base64_util import base64_decode
+from utils.base64_util import base64_decode, base64_encode
 from utils.url_util import url_encode
 
 logger = LoggerFactory.get_logger(__name__)
@@ -30,6 +30,28 @@ class SubscribeService:
             "subsub": "https://raw.githubusercontent.com/go4sharing/sub/main/sub.yaml"
         }
 
+    def get_clash_subscribe(self, clash_key: str) -> str:
+        try:
+            url = clash_key if clash_key.startswith(('http:', 'https:')) else self._urls.get(clash_key)
+            decoded_text = self._convert_to_v2ray(url)
+            lines = decoded_text.splitlines()
+            filtered_lines = []
+            for line in lines:
+                data_list = line.split("://")
+                protocol = data_list[0]
+                decoded_data = base64_decode(data_list[-1])
+                if self._should_include_line(decoded_data):
+                    encode_data = base64_encode(self._replace(decoded_data))
+                    filtered_lines.append(f"{protocol}://{encode_data}")
+            # sub_url_text = re.sub(r'\n', '|', decoded_text).rstrip('|')
+            if filtered_lines:
+                sub_url_text = '|'.join(filtered_lines)
+                return self._convert_to_clash(sub_url_text)
+        except Exception as e:
+            logger.error(f"get clash subscribe failed: {e}")
+
+        return ""
+
     def _convert_to_v2ray(self, input_url: str) -> str:
         url_encoded_input_url = url_encode(input_url)
         url = f"{self._sub_url}?target=v2ray&url={url_encoded_input_url}"
@@ -44,13 +66,11 @@ class SubscribeService:
     def _convert_to_clash(self, ssrsub_text: str) -> str:
         # url_encoded_config = url_encode(self._config)
         # url_encoded_ssrsub_text = url_encode(ssrsub_text)
-        url = f"{self._sub_url}?target=clash&url=${ssrsub_text}&config={self._config}&{self._params}"
+        url = f"{self._sub_url}?target=clash&url={ssrsub_text}&config={self._config}&{self._params}"
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
-            lines = response.text.splitlines()
-            filtered_lines = [self._replace(line) for line in lines if self._should_include_line(line, False)]
-            return '\n'.join(filtered_lines)
+            return response.text
         except Exception as e:
             logger.error(f"convert ssrsub to clash failed: {e}")
 
@@ -61,15 +81,6 @@ class SubscribeService:
     def _replace(self, line: str) -> str:
         """替换数据行"""
         return re.sub(self._pattern_2empty, '', line)
-
-    def get_clash_subscribe(self, clash_key: str) -> str:
-        try:
-            url = clash_key if 'http' in clash_key else self._urls.get(clash_key)
-            decoded_text = self._convert_to_v2ray(url)
-            sub_url_text = re.sub(re.compile(r'\n'), '|', decoded_text)
-            return self._convert_to_clash(sub_url_text)
-        except Exception as e:
-            logger.error(f"get clash subscribe failed: {e}")
 
 
 subscribe_service = SubscribeService()
