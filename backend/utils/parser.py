@@ -81,7 +81,7 @@ class Parser:
         return channel_list
 
     @staticmethod
-    def load_channel_txt(text_data, use_ignore: bool = True):
+    def load_channel_txt(text_data, filters: [str] = None, use_ignore: bool = True):
         from services import category_manager
 
         category_name = None
@@ -93,6 +93,9 @@ class Parser:
             if line.endswith("#genre#"):
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
+                if filters and parse_category not in filters:
+                    continue
+
                 define_category = category_manager.get_category(parse_category)
                 if (
                     (use_ignore and category_manager.is_ignore(define_category))
@@ -112,25 +115,25 @@ class Parser:
                 except ValueError:
                     continue
 
-    def _load_remote_url_txt(self, url, use_ignore: bool = True):
+    def _load_remote_url_txt(self, url, filters: [str] = None, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
-            self.load_channel_txt(response.text.strip(), use_ignore)
+            self.load_channel_txt(response.text.strip(), filters, use_ignore)
         except Exception as e:
             logger.error(f"access remote url data failed: {e}")
 
-    def load_remote_url_m3u(self, url: str, load_template: bool):
+    def load_remote_url_m3u(self, url: str, filters: [str], load_template: bool):
         try:
             if load_template:
-                self._load_channel_m3u(self._m3u_url, False)
-                self._load_remote_url_txt(self._txt_url, False)
-            self._load_channel_m3u(url, True)
+                self._load_channel_m3u(self._m3u_url, use_ignore=False)
+                self._load_remote_url_txt(self._txt_url, use_ignore=False)
+            self._load_channel_m3u(url, filters, True)
             channel_manager.sort()
         except Exception as e:
             logger.error(f"load remote url m3u data failed: {e}")
 
-    def _load_channel_m3u(self, url: str, use_ignore: bool = True):
+    def _load_channel_m3u(self, url: str, filters: [str] = None, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
@@ -153,6 +156,9 @@ class Parser:
                     group_title = params.get("title", "")
 
                 elif line.startswith(("http:", "https:")):
+                    if filters and group_title not in filters:
+                        continue
+
                     define_category = category_manager.get_category(group_title)
                     if (
                         (use_ignore and category_manager.is_ignore(define_category))
@@ -238,8 +244,8 @@ class Parser:
 
         try:
             if load_template:
-                self._load_channel_m3u(self._m3u_url, False)
-                self._load_remote_url_txt(self._txt_url, False)
+                self._load_channel_m3u(self._m3u_url, use_ignore=False)
+                self._load_remote_url_txt(self._txt_url, use_ignore=False)
 
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)

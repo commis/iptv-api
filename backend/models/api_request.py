@@ -63,6 +63,7 @@ class UpdateLiveRequest(BaseModel):
     output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
     url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
+    group: Optional[List[str]] = Field(default=[], description="原始数据的分类过滤保留想")
     rate_type: Optional[int] = Field(default=3, description="分辨率，仅在Migu视频有效[2:标清,3:高清,4:蓝光,7:原画,9:4k]")
     check_m3u8: Optional[bool] = Field(False, description="是否检查视频的有效性")
     load_template: Optional[bool] = Field(True, description="是否加载本地模板文件")

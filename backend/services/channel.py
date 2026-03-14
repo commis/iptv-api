@@ -58,7 +58,6 @@ class ChannelBaseModel:
 
     def __init__(self):
         self._epg = None
-        self._group = None
         self._channelGroups: Dict[str, ChannelList] = {}
         self._lock = threading.RLock()
 

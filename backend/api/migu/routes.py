@@ -50,11 +50,11 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                 task_manager.update_task(task_id, status="running", processed=0)
                 for url in request.url:
                     if url:
-                        parser_manager.load_remote_url_m3u(url, False)
-                parser_manager.load_remote_url_migu(task_id,
-                                                    request.epg.file,
-                                                    request.rate_type,
-                                                    request.load_template)
+                        parser_manager.load_remote_url_m3u(url, request.group, load_template=False)
+                # parser_manager.load_remote_url_migu(task_id,
+                #                                     request.epg.file,
+                #                                     request.rate_type,
+                #                                     request.load_template)
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 

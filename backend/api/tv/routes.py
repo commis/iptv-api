@@ -139,7 +139,7 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
                 task_manager.update_task(task_id, status="running", processed=0)
                 for url in request.url:
                     if url:
-                        parser_manager.load_remote_url_m3u(url, request.load_template)
+                        parser_manager.load_remote_url_m3u(url, request.group, request.load_template)
                         request.load_template = False
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
