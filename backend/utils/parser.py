@@ -94,11 +94,12 @@ class Parser:
                 category_name = None
                 parse_category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line).strip()
                 define_category = category_manager.get_category(parse_category)
-                if define_category is None or (use_ignore and category_manager.is_ignore(define_category)):
+                if (
+                    (use_ignore and category_manager.is_ignore(define_category))
+                    or not category_manager.exists(define_category)
+                ):
                     continue
-                if category_manager.exists(define_category):
-                    category_name = define_category
-                continue
+                category_name = define_category
 
             if category_name:
                 # 解析频道信息
@@ -154,8 +155,7 @@ class Parser:
                 elif line.startswith(("http:", "https:")):
                     define_category = category_manager.get_category(group_title)
                     if (
-                        define_category is None
-                        or (use_ignore and category_manager.is_ignore(define_category))
+                        (use_ignore and category_manager.is_ignore(define_category))
                         or not category_manager.exists(define_category)
                     ):
                         continue
@@ -177,6 +177,8 @@ class Parser:
             processed_pids = set()
             for cate in migu_cate_list:
                 cate_name = category_manager.get_category(cate.name)
+                if not category_manager.exists(cate_name):
+                    continue
                 data_list = self._get_migu_cate_data(processed_pids, cate_name, cate.vid, rate_type)
                 for data in data_list:
                     tvg_id = category_manager.get_channel_id(data.name)
@@ -635,6 +637,9 @@ class Parser:
                     relative_date = "体育-明天"
                 else:
                     relative_date = "体育-昨天"
+
+                if not category_manager.exists(relative_date):
+                    continue
 
                 match_list = resp_body.get("matchList", {}).get(date_val, [])
                 data_list.append((date_val, relative_date, match_list))
