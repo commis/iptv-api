@@ -69,7 +69,7 @@ class ChannelInfo:
         self._lock = threading.RLock()
 
     def set_logo(self, logo: str):
-        if logo is not None:
+        if not logo and not self.logo:
             self.logo = logo
 
     def set_name(self, name: str):
