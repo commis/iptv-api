@@ -36,7 +36,7 @@ class CreateApplication:
             uvicorn.run(
                 f"{module_name}:app",
                 host="192.168.3.144",
-                port=3000,
+                port=3001,
                 workers=1
             )
         except (KeyboardInterrupt, SystemExit):

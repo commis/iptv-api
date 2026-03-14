@@ -69,7 +69,7 @@ class ChannelInfo:
         self._lock = threading.RLock()
 
     def set_logo(self, logo: str):
-        if not logo and not self.logo:
+        if logo and not self.logo:
             self.logo = logo
 
     def set_name(self, name: str):
@@ -140,8 +140,8 @@ class ChannelInfo:
             + "\n".join(separator)
             + "\n"
             + "\n".join(
-            f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",{self.name}\n{url.url}"'
-            for url in sorted_urls)
+                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",{self.name}\n{url.url}"'
+                for url in sorted_urls)
         )
 
 
