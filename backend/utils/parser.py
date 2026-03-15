@@ -102,7 +102,9 @@ class Parser:
                     or not category_manager.exists(define_category)
                 ):
                     continue
+
                 category_name = define_category
+                continue
 
             if category_name:
                 # 解析频道信息
