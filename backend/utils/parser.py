@@ -263,7 +263,7 @@ class Parser:
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
-                # process_channel_TV(counter, migu_cates, f)
+                process_channel_TV(counter, migu_cates, f)
                 process_channel_PE(counter, migu_sports, f)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
