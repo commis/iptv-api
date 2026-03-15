@@ -263,7 +263,7 @@ class Parser:
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
-                process_channel_TV(counter, migu_cates, f)
+                # process_channel_TV(counter, migu_cates, f)
                 process_channel_PE(counter, migu_sports, f)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
@@ -685,7 +685,8 @@ class Parser:
                     category_info = config_manager.get_category_object(competition_desc, relative_date)
                     if category_info and config_manager.is_exclude(category_info, competition_desc):
                         continue
-                    migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
+                    # migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
+                    migu_video_play_url = f"{self._tvb_url}/{replay.get("pID")}"
                     if migu_video_play_url:
                         channel_manager.add_channel(False, relative_date,
                                                     competition_desc,
