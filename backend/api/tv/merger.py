@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from services import category_manager
+from services import config_manager
 
 
 class LiveMerger:
@@ -64,7 +64,7 @@ class LiveMerger:
         filtered_items = (
             (category, subgenre, url)
             for category, subgenre, url in self._data
-            if self._extract_host(url) in top_host_set or category_manager.is_ignore(category)
+            if self._extract_host(url) in top_host_set or config_manager.is_ignore(category)
         )
 
         for category, subgenre, url in filtered_items:

@@ -11,6 +11,7 @@ from models.api_request import UpdateLiveRequest
 from models.api_response import MiguResponse, TaskResponse
 from services.channel import channel_manager
 from services.checker import ChannelChecker
+from services.redis import redis_cache
 from services.task import task_manager
 from utils.handler import handle_exception
 from utils.parser import parser_manager
@@ -98,9 +99,15 @@ def parse_channel_url(
 ):
     """根据任务ID获取任务详情"""
     channel_id = id  # Constants.get_migu_cid(id)
-    channel_name = "Null"
+    channel_name = "Unknown"
     try:
-        chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id, rate_type=3)
+        cache_key = f"migu:video_url:{channel_id}"
+        chanel_url = redis_cache.get(cache_key)
+        if not chanel_url:
+            chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id, rate_type=3)
+            if chanel_url:
+                redis_cache.set(cache_key, chanel_url)
+
         if chanel_url:
             match type:
                 case "json":

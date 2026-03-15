@@ -9,7 +9,7 @@ from core.singleton import singleton
 
 
 @singleton
-class CategoryManager:
+class ConfigManager:
     """
     管理分类与图标映射关系的单例类
     """
@@ -32,6 +32,7 @@ class CategoryManager:
             )
         )
         full_config = self._load_config()
+        self._redis_config: Dict[str, Any] = full_config["redis_cache"]
         self._category_map: Dict[str, str] = full_config["category_map"]
         self._ignore_categories: Dict[str, str] = full_config["ignore_category"]
         self._channel_id_map: Dict[str, str] = full_config["channel_id_map"]
@@ -39,6 +40,10 @@ class CategoryManager:
         self._categories: Dict[str, Dict[str, Any]] = full_config["channel_map"]
 
         self._init_channel_relations()
+
+    @property
+    def redis_config(self):
+        return self._redis_config
 
     def _load_config(self) -> Dict[str, Any]:
         """加载完整配置（仅临时使用）"""
@@ -192,4 +197,4 @@ class CategoryManager:
         return self._channel_id_map.get(channel_id, channel_id)
 
 
-category_manager = CategoryManager()
+config_manager = ConfigManager()

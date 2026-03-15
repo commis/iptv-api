@@ -5,7 +5,7 @@ from typing import Dict
 
 from core.singleton import singleton
 from models.channel_info import ChannelList, ChannelInfo
-from services import category_manager
+from services import config_manager
 from utils.sort_util import StringSorter
 
 # 预编译正则，提升性能（推荐写法）
@@ -78,7 +78,7 @@ class ChannelBaseModel:
         self._channelGroups.clear()
 
     def sort(self):
-        fix_names = category_manager.get_groups()
+        fix_names = config_manager.get_groups()
         index_map = {name: i for i, name in enumerate(fix_names)}
         default_index = len(fix_names)
 
@@ -101,16 +101,16 @@ class ChannelBaseModel:
             return sum(
                 channel_list.count()
                 for group_name, channel_list in self._channelGroups.items()
-                if not category_manager.is_ignore(group_name)
+                if not config_manager.is_ignore(group_name)
             )
 
     def add_channel(self, use_ignore: bool, name: str, channel_name, channel_url, id: str = "", logo=None):
         # 添加频道信息，自动归类分类信息，自动过滤排除频道
         with self._lock:
-            category_info = category_manager.get_category_object(channel_name, name)
+            category_info = config_manager.get_category_object(channel_name, name)
             if category_info:
                 if self._epg and self._epg.rename_cid:
-                    id = category_manager.get_channel_id(id)
+                    id = config_manager.get_channel_id(id)
 
                 category_name = category_info.get("name", name)
                 if category_name not in self._channelGroups:
@@ -119,7 +119,7 @@ class ChannelBaseModel:
 
                 if not use_ignore:
                     channel_list.add_channel(channel_name, channel_url, id, logo)
-                elif not category_manager.is_exclude(category_info, channel_name):
+                elif not config_manager.is_exclude(category_info, channel_name):
                     channel_list.add_channel(channel_name, channel_url, id, logo)
 
     def add_channel_data(self, name: str, channel_name, channel_url, id, logo):
@@ -173,7 +173,7 @@ class ChannelBaseModel:
         with self._lock:
             result = [self._get_extm3u_header()]
             for group_name, channel_list in self._channelGroups.items():
-                do_channel_logo = category_manager.do_channel_logo(group_name)
+                do_channel_logo = config_manager.do_channel_logo(group_name)
                 result.append(channel_list.get_m3u(do_channel_logo,
                                                    group_name,
                                                    self._epg.domain,
@@ -200,7 +200,7 @@ class ChannelBaseModel:
         with self._lock:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
-                do_channel_logo = category_manager.do_channel_logo(group_name)
+                do_channel_logo = config_manager.do_channel_logo(group_name)
                 file_handle.write(channel_list.get_m3u(do_channel_logo,
                                                        group_name,
                                                        self._epg.domain,

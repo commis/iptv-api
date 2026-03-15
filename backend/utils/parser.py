@@ -13,7 +13,7 @@ from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from models.counter import Counter
 from models.migu_info import MiguCateInfo, MiguDataInfo
-from services import channel_manager, category_manager, task_manager
+from services import channel_manager, config_manager, task_manager
 from utils.encry_util import getStringMD5
 from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_str
 
@@ -41,6 +41,7 @@ CLIENT_CONFIG = {
 
 
 class Parser:
+    _tvb_url = "http://107.174.95.154/umigu"
     _txt_url = "https://ak3721.top/tv/json/template.txt"
     _m3u_url = "https://ak3721.top/tv/json/template.m3u"
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
@@ -61,7 +62,7 @@ class Parser:
             if line.endswith("#genre#"):
                 category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line[:-7]).strip()
                 category_stack = (
-                    category_manager.get_category(category) if category else None
+                    config_manager.get_category(category) if category else None
                 )
                 continue
 
@@ -73,16 +74,16 @@ class Parser:
                 if not url:
                     continue
 
-                category_info = category_manager.get_category_object(channel_name, category_stack)
+                category_info = config_manager.get_category_object(channel_name, category_stack)
                 category_name = category_info.get("name")
-                if not category_manager.is_exclude(category_info, channel_name):
+                if not config_manager.is_exclude(category_info, channel_name):
                     channel_list.append((category_name, channel_name, url))
 
         return channel_list
 
     @staticmethod
     def load_channel_txt(text_data, filters: [str] = None, use_ignore: bool = True):
-        from services import category_manager
+        from services import config_manager
 
         category_name = None
         for line in (
@@ -96,10 +97,10 @@ class Parser:
                 if filters and parse_category not in filters:
                     continue
 
-                define_category = category_manager.get_category(parse_category)
+                define_category = config_manager.get_category(parse_category)
                 if (
-                    (use_ignore and category_manager.is_ignore(define_category))
-                    or not category_manager.exists(define_category)
+                    (use_ignore and config_manager.is_ignore(define_category))
+                    or not config_manager.exists(define_category)
                 ):
                     continue
 
@@ -111,7 +112,7 @@ class Parser:
                 try:
                     subgenre, url = line.split(",", 1)
                     subgenre, url = subgenre.strip(), url.strip()
-                    channel_name = category_manager.get_channel(subgenre)
+                    channel_name = config_manager.get_channel(subgenre)
                     if url:
                         channel_manager.add_channel(True, category_name, channel_name, url, subgenre)
                 except ValueError:
@@ -152,8 +153,8 @@ class Parser:
                 if line.startswith("#EXTINF:"):
                     tag_content = line[8:].strip()
                     params, name = LiveConverter.parse_extinf_params(tag_content)
-                    channel_name = category_manager.get_channel(name)
-                    tvg_id = category_manager.get_channel_id(params.get("id", ""))
+                    channel_name = config_manager.get_channel(name)
+                    tvg_id = config_manager.get_channel_id(params.get("id", ""))
                     tvg_logo = params.get("logo", "")
                     group_title = params.get("title", "")
 
@@ -161,13 +162,13 @@ class Parser:
                     if filters and group_title not in filters:
                         continue
 
-                    define_category = category_manager.get_category(group_title)
+                    define_category = config_manager.get_category(group_title)
                     if (
-                        (use_ignore and category_manager.is_ignore(define_category))
-                        or not category_manager.exists(define_category)
+                        (use_ignore and config_manager.is_ignore(define_category))
+                        or not config_manager.exists(define_category)
                     ):
                         continue
-                    do_channel_logo = category_manager.do_channel_logo(define_category)
+                    do_channel_logo = config_manager.do_channel_logo(define_category)
                     match do_channel_logo:
                         case 0:
                             tvg_new_logo = ''
@@ -184,13 +185,13 @@ class Parser:
         def process_channel_TV(processed_counter, migu_cate_list, epg_f):
             processed_pids = set()
             for cate in migu_cate_list:
-                cate_name = category_manager.get_category(cate.name)
-                if not category_manager.exists(cate_name):
+                cate_name = config_manager.get_category(cate.name)
+                if not config_manager.exists(cate_name):
                     continue
                 data_list = self._get_migu_cate_data(processed_pids, cate_name, cate.vid, rate_type)
                 for data in data_list:
-                    tvg_id = category_manager.get_channel_id(data.name)
-                    channel_name = category_manager.get_channel(data.name)
+                    tvg_id = config_manager.get_channel_id(data.name)
+                    channel_name = config_manager.get_channel(data.name)
                     # 在get_migu_cate_data函数内部已经做了过滤，古这里不用做重复的过滤了
                     channel_manager.add_channel(False, cate_name, channel_name, data.url, tvg_id, data.pic)
                     self._get_migu_playback_data(cate_name, data, epg_f)
@@ -228,10 +229,11 @@ class Parser:
 
                             competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {start_time_str[11:16]}"
                             # 提前做过滤处理，减少获取URL的调用
-                            category_info = category_manager.get_category_object(competition_desc, relative_date)
-                            if category_info and category_manager.is_exclude(category_info, competition_desc):
+                            category_info = config_manager.get_category_object(competition_desc, relative_date)
+                            if category_info and config_manager.is_exclude(category_info, competition_desc):
                                 continue
-                            migu_video_play_url = self.get_migu_video_url(competition_desc, live.get("pID"))
+                            # migu_video_play_url = self.get_migu_video_url(competition_desc, live.get("pID"))
+                            migu_video_play_url = f"{self._tvb_url}/{live.get("pID")}"
                             if migu_video_play_url:
                                 channel_manager.add_channel(False, relative_date,
                                                             competition_desc,
@@ -294,8 +296,8 @@ class Parser:
         try:
             date_str = datetime.now().strftime("%Y%m%d")
             # 过滤掉排除的频道
-            category_info = category_manager.get_category_object(channel_data.name, category_name)
-            if category_info and not category_manager.is_exclude(category_info, channel_data.name):
+            category_info = config_manager.get_category_object(channel_data.name, category_name)
+            if category_info and not config_manager.is_exclude(category_info, channel_data.name):
                 if Constants.cvt_exist(channel_data.name):
                     tv_name = Constants.get_cvt_name(channel_data.name)
                     self._get_migu_playback_data_cctv(channel_data.name, date_str, tv_name, fd)
@@ -311,8 +313,8 @@ class Parser:
             resp.raise_for_status()
             playback_data = resp.json().get(tv_name, {}).get("program", {})
             if playback_data:
-                tvg_id = category_manager.get_channel_id(name)
-                display_name = category_manager.get_channel(name)
+                tvg_id = config_manager.get_channel_id(name)
+                display_name = config_manager.get_channel(name)
                 fd.write(
                     f'    <channel id="{tvg_id}">\n'
                     f'        <display-name lang="zh">{display_name}</display-name>\n'
@@ -339,8 +341,8 @@ class Parser:
                 resp.json().get("body", {}).get("program")[0].get("content", [])
             )
             if playback_data:
-                tvg_id = category_manager.get_channel_id(channel_data.name)
-                display_name = category_manager.get_channel(channel_data.name)
+                tvg_id = config_manager.get_channel_id(channel_data.name)
+                display_name = config_manager.get_channel(channel_data.name)
                 fd.write(
                     f'    <channel id="{tvg_id}">\n'
                     f'        <display-name lang="zh">{display_name}</display-name>\n'
@@ -376,11 +378,12 @@ class Parser:
                 pics = data.get("pics", [])
                 channel_name = data.get("name")
                 # 提前做过滤处理，减少获取URL的调用
-                category_info = category_manager.get_category_object(channel_name, category_name)
-                if category_info and category_manager.is_exclude(category_info, channel_name):
+                category_info = config_manager.get_category_object(channel_name, category_name)
+                if category_info and config_manager.is_exclude(category_info, channel_name):
                     continue
                 migu_data_info = MiguDataInfo(channel_name, pid, pics.get("highResolutionH"))
-                migu_video_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
+                # migu_video_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
+                migu_video_play_url = f"{self._tvb_url}/{migu_data_info.pid}"
                 if migu_video_play_url:
                     migu_data_info.set_url(migu_video_play_url)
                     output_data.append(migu_data_info)
@@ -646,7 +649,7 @@ class Parser:
                 else:
                     relative_date = "体育-昨天"
 
-                if not category_manager.exists(relative_date):
+                if not config_manager.exists(relative_date):
                     continue
 
                 match_list = resp_body.get("matchList", {}).get(date_val, [])
@@ -679,8 +682,8 @@ class Parser:
                             time_str = start_time_str[11:16]
                     competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {time_str}"
                     # 提前做过滤处理，减少获取URL的调用
-                    category_info = category_manager.get_category_object(competition_desc, relative_date)
-                    if category_info and category_manager.is_exclude(category_info, competition_desc):
+                    category_info = config_manager.get_category_object(competition_desc, relative_date)
+                    if category_info and config_manager.is_exclude(category_info, competition_desc):
                         continue
                     migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
                     if migu_video_play_url:

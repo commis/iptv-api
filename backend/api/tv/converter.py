@@ -2,7 +2,7 @@ import re
 from typing import Tuple, Dict
 
 from core.logger_factory import LoggerFactory
-from services import category_manager
+from services import config_manager
 from services.channel import ChannelBaseModel
 
 logger = LoggerFactory.get_logger(__name__)
@@ -60,7 +60,7 @@ class LiveConverter:
             if line.startswith('#EXTINF:'):
                 tag_content = line[8:].strip()
                 params, name = LiveConverter.parse_extinf_params(tag_content)
-                channel_name = category_manager.get_channel(name)
+                channel_name = config_manager.get_channel(name)
                 try:
                     channel_id = params.get('id') if "id" in params else ''
                 except ValueError:
@@ -105,6 +105,6 @@ class LiveConverter:
                 continue
 
             channel_id, url = line.split(',', 1)
-            name = category_manager.get_channel(channel_id)
+            name = config_manager.get_channel(channel_id)
             self._channel_model.add_channel(True, name=group_title, channel_name=name, channel_url=url, id=channel_id)
         self._channel_model.sort()

@@ -1,7 +1,7 @@
 import threading
 from typing import List, Dict, Set
 
-from services import category_manager
+from services import config_manager
 from utils.sort_util import StringSorter
 
 
@@ -228,7 +228,7 @@ class ChannelList:
 
     def write_to_m3u_file(self, group_name, domain, show_logo, file_handle):
         with self._lock:
-            do_channel_logo = category_manager.do_channel_logo(group_name)
+            do_channel_logo = config_manager.do_channel_logo(group_name)
             for channel_info in self._sorted_channels():
                 m3u_line = channel_info.get_m3u(do_channel_logo, group_name, domain, show_logo)
                 if m3u_line:

@@ -16,7 +16,7 @@ from core.execution_time import log_execution_time, ref
 from core.logger_factory import LoggerFactory
 from models.channel_info import ChannelInfo, ChannelUrl
 from models.counter import Counter
-from services import channel_manager, category_manager
+from services import channel_manager, config_manager
 
 logger = LoggerFactory.get_logger(__name__)
 
@@ -242,7 +242,7 @@ class ChannelChecker:
         processed_counter = Counter()
 
         tasks = []
-        for group_name in filter(lambda g: not category_manager.is_ignore(g), channel_manager.get_groups()):
+        for group_name in filter(lambda g: not config_manager.is_ignore(g), channel_manager.get_groups()):
             chanmel_list = channel_manager.get_channel_list(group_name)
             for channel_name in chanmel_list.get_channel_names():
                 channel_info = chanmel_list.get_channel(channel_name)
