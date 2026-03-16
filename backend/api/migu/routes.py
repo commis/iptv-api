@@ -100,22 +100,28 @@ def parse_channel_url(
     """根据任务ID获取任务详情"""
     channel_id = id  # Constants.get_migu_cid(id)
     channel_name = "Unknown"
+    resp_message = "缓存获取地址成功"
     try:
         cache_key = f"migu:video_url:{channel_id}"
         chanel_url = redis_cache.get(cache_key)
         if not chanel_url:
             chanel_url = parser_manager.get_migu_video_url(channel_name, channel_id, rate_type=3)
             if chanel_url:
+                resp_message = "生成播放地址成功"
                 redis_cache.set(cache_key, chanel_url)
 
         if chanel_url:
             match type:
                 case "json":
-                    return MiguResponse(url=chanel_url, data={"id": channel_id, "name": channel_name})
+                    return MiguResponse(
+                        url=chanel_url, message=resp_message,
+                        data={"id": channel_id, "name": channel_name}
+                    )
                 case _:
-                    return RedirectResponse(url=chanel_url, status_code=302, headers={
-                        'Content-Type': 'application/json;charset=UTF-8'
-                    })
+                    return RedirectResponse(
+                        url=chanel_url, status_code=302,
+                        headers={'Content-Type': 'application/json;charset=UTF-8'}
+                    )
     except Exception as e:
         logger.error(f"get {channel_id} video failed: {str(e)}", exc_info=True)
 
