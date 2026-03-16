@@ -231,7 +231,6 @@ class Parser:
 
                             competition_desc = (f"{data.get('competitionName')} "
                                                 f"{pk_info_title} {name} {start_time_str[11:16]}")
-                            # 提前做过滤处理，减少获取URL的调用
                             category_info = config_manager.get_category_object(competition_desc, relative_date)
                             if category_info and config_manager.is_exclude(category_info, competition_desc):
                                 continue
@@ -278,11 +277,8 @@ class Parser:
         cache_key = f"migu:live_list"
         cache_data = redis_cache.get(cache_key)
         if cache_data:
-            try:
-                cached = json.loads(cache_data)
-                return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
-            except Exception:
-                pass
+            cached = json.loads(cache_data)
+            return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
 
         migu_cate_url = self._migu_url + "1ff892f2b5ab4a79be6e25b69d2f5d05"
         response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
@@ -302,13 +298,11 @@ class Parser:
             cate_list.append(MiguCateInfo(name, vid))
             appended_cates.add(name)
 
-        try:
-            redis_cache.set(
-                cache_key,
-                json.dumps([{"name": c.name, "vid": c.vid} for c in cate_list]),
-            )
-        except Exception:
-            pass
+        redis_cache.set(
+            cache_key,
+            json.dumps([{"name": c.name, "vid": c.vid} for c in cate_list]),
+            24 * 3600
+        )
 
         return cate_list
 
@@ -677,7 +671,7 @@ class Parser:
                 data_list.append((date_val, relative_date, match_list))
 
             return data_list
-        except Exception as e:
+        except Exception:
             return None
 
     def _get_migu_sport_overed(self, processed_counter, task_id, relative_date, data, body, pk_info_title, mgdb_id):
@@ -702,7 +696,6 @@ class Parser:
                         if start_time_str:
                             time_str = start_time_str[11:16]
                     competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {time_str}"
-                    # 提前做过滤处理，减少获取URL的调用
                     category_info = config_manager.get_category_object(competition_desc, relative_date)
                     if category_info and config_manager.is_exclude(category_info, competition_desc):
                         continue
