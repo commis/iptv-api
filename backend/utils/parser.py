@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import re
@@ -14,6 +15,7 @@ from core.logger_factory import LoggerFactory
 from models.counter import Counter
 from models.migu_info import MiguCateInfo, MiguDataInfo
 from services import channel_manager, config_manager, task_manager
+from services.redis import redis_cache
 from utils.encry_util import getStringMD5
 from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_str
 
@@ -227,7 +229,8 @@ class Parser:
                             if re.search(r".*集锦.*", name) or not start_time_str:
                                 continue
 
-                            competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {start_time_str[11:16]}"
+                            competition_desc = (f"{data.get('competitionName')} "
+                                                f"{pk_info_title} {name} {start_time_str[11:16]}")
                             # 提前做过滤处理，减少获取URL的调用
                             category_info = config_manager.get_category_object(competition_desc, relative_date)
                             if category_info and config_manager.is_exclude(category_info, competition_desc):
@@ -272,25 +275,42 @@ class Parser:
             logger.error(f"fetch migu data failed: {e}")
 
     def _get_migu_cate_list(self) -> List[MiguCateInfo]:
+        cache_key = f"migu:live_list"
+        cache_data = redis_cache.get(cache_key)
+        if cache_data:
+            try:
+                cached = json.loads(cache_data)
+                return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
+            except Exception:
+                pass
+
         migu_cate_url = self._migu_url + "1ff892f2b5ab4a79be6e25b69d2f5d05"
         response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
         response.raise_for_status()
         json_cate_data = response.json()
 
-        output_data = []
         body = json_cate_data.get("body", {})
-        live_list = body.get("liveList", [])
+        raw_live_list = body.get("liveList", [])
         exclude_names = {"热门", "少儿"}
         appended_cates = set()
-        for live in live_list:
+        cate_list: List[MiguCateInfo] = []
+        for live in raw_live_list:
             name = live.get("name", "")
-            if name in appended_cates:
+            if not name or name in appended_cates or name in exclude_names:
                 continue
-            if name not in exclude_names:
-                output_data.append(MiguCateInfo(name, live.get("vomsID")))
-                appended_cates.add(name)
+            vid = live.get("vomsID", "")
+            cate_list.append(MiguCateInfo(name, vid))
+            appended_cates.add(name)
 
-        return output_data
+        try:
+            redis_cache.set(
+                cache_key,
+                json.dumps([{"name": c.name, "vid": c.vid} for c in cate_list]),
+            )
+        except Exception:
+            pass
+
+        return cate_list
 
     def _get_migu_playback_data(self, category_name, channel_data, fd):
         try:
@@ -633,7 +653,8 @@ class Parser:
         return resp_json.get("body", {})
 
     def _get_migu_sport_list(self):
-        url = "https://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/0/all/default/1/miguvideo/"
+        url = ("https://v0-sc.miguvideo.com/vms-match/v6/staticcache/basic/match-list/normal-match-list/"
+               "0/all/default/1/miguvideo/")
         try:
             resp_body = self._get_url_body(url)
 
