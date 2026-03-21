@@ -49,7 +49,7 @@ class Constants:
     MIGU_USERID = os.getenv("muserid")
     MIGU_TOKEN = os.getenv("mtoken")
 
-    _MIGU_IDS = {
+    _MIGU_CHANNEL_MAP = {
         # 央视频道
         "cctv1": {"pid": "608807420", "name": "CCTV1综合"},
         "cctv2": {"pid": "631780532", "name": "CCTV2财经"},
@@ -200,10 +200,15 @@ class Constants:
         "hmxt": {"pid": "713591450", "name": "和美乡途轮播台"},
     }
 
-    @classmethod
-    def get_migu_list(cls):
-        return [f"{k} -> {v}" for k, v in cls._MIGU_IDS.items()]
+    # 重新构建 _MIGU_CHANNEL_MAP，以 pid 为键（过滤掉空 pid）
+    _MIGU_CHANNEL_MAP = {v['pid']: {'cid': k, 'name': v['name']}
+                         for k, v in _MIGU_CHANNEL_MAP.items()
+                         if v['pid'] != ''}
 
     @classmethod
-    def get_migu_cid(cls, key: str):
-        return cls._MIGU_IDS.get(key, '000000000')
+    def get_migu_list(cls):
+        return [f"{k} -> {v}" for k, v in cls._MIGU_CHANNEL_MAP.items()]
+
+    @classmethod
+    def get_migu_channel(cls, key: str):
+        return cls._MIGU_CHANNEL_MAP.get(key)
