@@ -105,14 +105,14 @@ def parse_channel_url(
         resp_data["cid"] = channel_object.get("cid")
         resp_data["name"] = channel_object.get("name")
 
-    resp_message = "从缓存获取地址成功"
+    resp_message = "成功从缓存获取地址"
     try:
         cache_key = f"migu:video_url:{channel_id}"
         chanel_url = redis_cache.get(cache_key)
         if not chanel_url:
             chanel_url = parser_manager.get_migu_video_url(resp_data.get("name"), channel_id, rate_type=3)
             if chanel_url:
-                resp_message = "生成播放地址成功"
+                resp_message = "成功获取播放地址"
                 redis_cache.set(cache_key, chanel_url)
 
         if chanel_url:
@@ -127,4 +127,4 @@ def parse_channel_url(
     except Exception as e:
         logger.error(f"get {channel_id} video failed: {str(e)}", exc_info=True)
 
-    return MiguResponse(url="", code=101, message="生成播放地址失败", data=resp_data)
+    return MiguResponse(url="", code=101, message="失败获取播放地址", data=resp_data)
