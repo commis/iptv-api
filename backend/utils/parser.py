@@ -43,7 +43,7 @@ CLIENT_CONFIG = {
 
 
 class Parser:
-    _tvb_url = "http://107.174.95.154/umigu"
+    _tvb_url = "http://121.43.255.31/umigu"
     _txt_url = "https://ak3721.top/tv/json/template.txt"
     _m3u_url = "https://ak3721.top/tv/json/template.m3u"
     _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
