@@ -100,7 +100,7 @@ def parse_channel_url(
     """根据任务ID获取任务详情"""
     channel_id = id
     channel_object = Constants.get_migu_channel(channel_id)
-    resp_data = {"id": channel_id, "cid": None, "name": None}
+    resp_data = {"id": channel_id, "cid": "", "name": ""}
     if channel_object:
         resp_data["cid"] = channel_object.get("cid")
         resp_data["name"] = channel_object.get("name")
