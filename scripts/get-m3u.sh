@@ -41,7 +41,7 @@ update_m3u() {
   "output": "/tmp/migu3721.txt",
   "epg": {
     "file": "/tmp/migu-e.xml",
-    "url": "https://ak3721.top/tv/epg/migu-e.xml",
+    "url": "https://tv.ak3721.top/tv/epg/migu-e.xml",
     "source": "&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
 	"show_logo": "True"
   }

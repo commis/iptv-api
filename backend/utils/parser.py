@@ -43,10 +43,10 @@ CLIENT_CONFIG = {
 
 
 class Parser:
-    _tvb_url = "http://121.43.255.31/umigu"
-    _txt_url = "https://ak3721.top/tv/json/template.txt"
-    _m3u_url = "https://ak3721.top/tv/json/template.m3u"
-    _migu_url = "https://program-sc.miguvideo.com/live/v2/tv-data/"
+    TXT_URL = "https://ak3721.top/tv/json/template.txt"
+    M3U_URL = "https://ak3721.top/tv/json/template.m3u"
+    _MIGU_TV = "https://program-sc.miguvideo.com/live/v2/tv-data/"
+    _TVG_URL = "http://121.43.255.31/umigu"
 
     @staticmethod
     def get_channel_data(text_data: str) -> list:
@@ -120,7 +120,7 @@ class Parser:
                 except ValueError:
                     continue
 
-    def _load_remote_url_txt(self, url, filters: [str] = None, use_ignore: bool = True):
+    def load_remote_url_txt(self, url, filters: [str] = None, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
@@ -128,17 +128,7 @@ class Parser:
         except Exception as e:
             logger.error(f"access remote url data failed: {e}")
 
-    def load_remote_url_m3u(self, url: str, filters: [str], load_template: bool):
-        try:
-            if load_template:
-                self._load_channel_m3u(self._m3u_url, use_ignore=False)
-                self._load_remote_url_txt(self._txt_url, use_ignore=False)
-            self._load_channel_m3u(url, filters, True)
-            channel_manager.sort()
-        except Exception as e:
-            logger.error(f"load remote url m3u data failed: {e}")
-
-    def _load_channel_m3u(self, url: str, filters: [str] = None, use_ignore: bool = True):
+    def load_channel_m3u(self, url: str, filters: [str] = None, use_ignore: bool = True):
         try:
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
@@ -182,7 +172,7 @@ class Parser:
         except Exception as e:
             logger.error(f"load channel m3u data failed: {e}")
 
-    def load_remote_url_migu(self, task_id, epg_file, rate_type, load_template: bool):
+    def load_remote_url_migu(self, task_id, epg_file, rate_type):
 
         def process_channel_TV(processed_counter, migu_cate_list, epg_f):
             processed_pids = set()
@@ -235,7 +225,7 @@ class Parser:
                             if category_info and config_manager.is_exclude(category_info, competition_desc):
                                 continue
                             # migu_video_play_url = self.get_migu_video_url(competition_desc, live.get("pID"))
-                            migu_video_play_url = f"{self._tvb_url}/{live.get("pID")}"
+                            migu_video_play_url = f"{self._TVG_URL}/{live.get("pID")}"
                             if migu_video_play_url:
                                 channel_manager.add_channel(False, relative_date,
                                                             competition_desc,
@@ -249,10 +239,6 @@ class Parser:
                         logger.error(f"process PE data failed: {e}")
 
         try:
-            if load_template:
-                self._load_channel_m3u(self._m3u_url, use_ignore=False)
-                self._load_remote_url_txt(self._txt_url, use_ignore=False)
-
             # 确保目录存在
             os.makedirs(os.path.dirname(epg_file), exist_ok=True)
             epg_file_bak = epg_file + ".bak"
@@ -280,7 +266,7 @@ class Parser:
             cached = json.loads(cache_data)
             return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
 
-        migu_cate_url = self._migu_url + "1ff892f2b5ab4a79be6e25b69d2f5d05"
+        migu_cate_url = self._MIGU_TV + "1ff892f2b5ab4a79be6e25b69d2f5d05"
         response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
         response.raise_for_status()
         json_cate_data = response.json()
@@ -378,7 +364,7 @@ class Parser:
         output_data = []
 
         try:
-            migu_url = self._migu_url + pid
+            migu_url = self._MIGU_TV + pid
             response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT)
             response.raise_for_status()
             json_cate_data = response.json()
@@ -397,7 +383,7 @@ class Parser:
                     continue
                 migu_data_info = MiguDataInfo(channel_name, pid, pics.get("highResolutionH"))
                 # migu_video_play_url = self.get_migu_video_url(migu_data_info.name, migu_data_info.pid, rate_type)
-                migu_video_play_url = f"{self._tvb_url}/{migu_data_info.pid}"
+                migu_video_play_url = f"{self._TVG_URL}/{migu_data_info.pid}"
                 if migu_video_play_url:
                     migu_data_info.set_url(migu_video_play_url)
                     output_data.append(migu_data_info)
@@ -700,7 +686,7 @@ class Parser:
                     if category_info and config_manager.is_exclude(category_info, competition_desc):
                         continue
                     # migu_video_play_url = self.get_migu_video_url(competition_desc, replay.get("pID"))
-                    migu_video_play_url = f"{self._tvb_url}/{replay.get("pID")}"
+                    migu_video_play_url = f"{self._TVG_URL}/{replay.get("pID")}"
                     if migu_video_play_url:
                         channel_manager.add_channel(False, relative_date,
                                                     competition_desc,

@@ -137,10 +137,13 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
             """后台运行的批量检查任务"""
             try:
                 task_manager.update_task(task_id, status="running", processed=0)
-                for url in request.url:
-                    if url:
-                        parser_manager.load_remote_url_m3u(url, request.group, request.load_template)
-                        request.load_template = False
+                if request.load_template:
+                    parser_manager.load_channel_m3u(parser_manager.M3U_URL, use_ignore=False)
+                    parser_manager.load_remote_url_txt(parser_manager.TXT_URL, use_ignore=False)
+
+                [parser_manager.load_channel_m3u(url, request.group, use_ignore=True) for url in request.url if url]
+
+                channel_manager.sort()
                 total_count = channel_manager.total_count()
                 task_manager.update_task(task_id, total=total_count, processed=0)
 
