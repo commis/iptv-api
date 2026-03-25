@@ -52,7 +52,7 @@ class EpgRequest(BaseModel):
                                description="直播源回放信息URL")
     source: Optional[str] = Field(default="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
                                   description="直播源回放查找参数")
-    domain: Optional[str] = Field(default="", description="LOGO文件域名")
+    domain: Optional[str] = Field(default="", description="访问视频的地址")
     show_logo: Optional[bool] = Field(default=True, description="全局开关，是否打开Logo显示")
     rename_cid: Optional[bool] = Field(default=True, description="是否替换图片后缀")
 
@@ -63,7 +63,7 @@ class UpdateLiveRequest(BaseModel):
     output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
     url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
-    group: Optional[List[str]] = Field(default=[], description="原始数据的分类过滤保留想")
+    group: Optional[List[str]] = Field(default=[], description="原始数据的分类过滤保留项")
     rate_type: Optional[int] = Field(default=3, description="分辨率，仅在Migu视频有效[2:标清,3:高清,4:蓝光,7:原画,9:4k]")
     check_m3u8: Optional[bool] = Field(False, description="是否检查视频的有效性")
     load_template: Optional[bool] = Field(True, description="是否加载本地模板文件")

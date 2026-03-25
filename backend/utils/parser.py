@@ -45,8 +45,11 @@ CLIENT_CONFIG = {
 class Parser:
     TXT_URL = "https://ak3721.top/tv/json/template.txt"
     M3U_URL = "https://ak3721.top/tv/json/template.m3u"
-    _MIGU_TV = "https://program-sc.miguvideo.com/live/v2/tv-data/"
     _TVG_URL = "http://121.43.255.31/umigu"
+    _MIGU_TV = "https://program-sc.miguvideo.com/live/v2/tv-data/"
+
+    def set_domain(self, url):
+        self._TVG_URL = url
 
     @staticmethod
     def get_channel_data(text_data: str) -> list:
@@ -164,8 +167,6 @@ class Parser:
                     match do_channel_logo:
                         case 0:
                             tvg_new_logo = ''
-                        case 3:
-                            tvg_new_logo = channel_manager.epg.get_logo(tvg_logo)
                         case _:
                             tvg_new_logo = tvg_logo
                     channel_manager.add_channel(use_ignore, define_category, channel_name, line, tvg_id, tvg_new_logo)

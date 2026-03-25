@@ -1,4 +1,3 @@
-import os
 import re
 import threading
 from typing import Dict
@@ -14,10 +13,9 @@ PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
 
 class EpgBaseModel:
 
-    def __init__(self, url: str, source: str, domain: str, show_logo: bool, rename_cid: bool):
+    def __init__(self, url: str, source: str, show_logo: bool, rename_cid: bool):
         self._url = url
         self._source = source
-        self._domain = None if domain is None or domain == "" else domain
         self._show_logo = show_logo
         self._rename_cid = rename_cid
 
@@ -30,25 +28,12 @@ class EpgBaseModel:
         return self._source
 
     @property
-    def domain(self):
-        return self._domain
-
-    @property
     def show_logo(self):
         return self._show_logo
 
     @property
     def rename_cid(self):
         return self._rename_cid
-
-    def get_logo(self, source_logo: str) -> str:
-        if self._domain is None:
-            return source_logo
-
-        filename = os.path.basename(source_logo)
-        if self._rename_cid:
-            return PIC_SUFFIX_PATTERN.sub('.webp', filename)
-        return f"{filename}"
 
 
 class ChannelBaseModel:
@@ -68,10 +53,9 @@ class ChannelBaseModel:
     def set_epg(self,
                 url: str = "",
                 source: str = "",
-                domain: str = "",
                 show_logo: bool = False,
                 rename_cid: bool = False):
-        self._epg = EpgBaseModel(url, source, domain, show_logo, rename_cid)
+        self._epg = EpgBaseModel(url, source, show_logo, rename_cid)
 
     def clear(self):
         self._epg = None
@@ -174,10 +158,7 @@ class ChannelBaseModel:
             result = [self._get_extm3u_header()]
             for group_name, channel_list in self._channelGroups.items():
                 do_channel_logo = config_manager.do_channel_logo(group_name)
-                result.append(channel_list.get_m3u(do_channel_logo,
-                                                   group_name,
-                                                   self._epg.domain,
-                                                   self._epg.show_logo))
+                result.append(channel_list.get_m3u(do_channel_logo, group_name, self._epg.show_logo))
             return "\n".join(result).strip()
 
     def to_txt_string(self) -> str:
@@ -201,10 +182,7 @@ class ChannelBaseModel:
             file_handle.write(f"{self._get_extm3u_header()}\n")
             for group_name, channel_list in self._channelGroups.items():
                 do_channel_logo = config_manager.do_channel_logo(group_name)
-                file_handle.write(channel_list.get_m3u(do_channel_logo,
-                                                       group_name,
-                                                       self._epg.domain,
-                                                       self._epg.show_logo))
+                file_handle.write(channel_list.get_m3u(do_channel_logo, group_name, self._epg.show_logo))
                 file_handle.write("\n")
 
 

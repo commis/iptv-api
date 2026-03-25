@@ -30,10 +30,12 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
             channel_manager.clear()
             task_manager.clear()
 
+        if request.epg.domain:
+            parser_manager.set_domain(request.epg.domain)
+
         channel_manager.set_epg(
             url=request.epg.url,
             source=request.epg.source,
-            domain=request.epg.domain,
             show_logo=request.epg.show_logo,
             rename_cid=request.epg.rename_cid,
         )

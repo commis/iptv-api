@@ -134,7 +134,7 @@ class ConfigManager:
     def do_channel_logo(self, category: str) -> int:
         """
         分类是否需要替换logo路经，使用二进制位表示，显示不替换
-        00=0: 关闭， 01=1：显示不替换，11=3：显示且替换替换
+        00=0: 关闭， 01=1：显示
         """
         default_value: int = 1
         with self._lock:
