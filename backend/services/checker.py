@@ -125,8 +125,8 @@ class ChannelChecker:
                 '-select_streams', 'v:0',
                 '-show_entries', 'stream=height',
                 '-of', 'json',
-                '-probesize', '500000',
-                '-analyzeduration', '3000000',
+                '-probesize', '32768',
+                '-analyzeduration', '500000',
                 '-connect_timeout', ms_timeout,
                 '-rw_timeout', micro_timeout,
                 '-stimeout', micro_timeout,
@@ -246,8 +246,10 @@ class ChannelChecker:
             chanmel_list = channel_manager.get_channel_list(group_name)
             for channel_name in chanmel_list.get_channel_names():
                 channel_info = chanmel_list.get_channel(channel_name)
-                for url_info in channel_info.get_urls():
-                    tasks.append((channel_info, url_info, check_m3u8_invalid))
+                channel_url_infos = channel_info.get_urls()
+                execute_check_m3u8 = False if len(channel_url_infos) <= 1 else check_m3u8_invalid
+                for url_info in channel_url_infos:
+                    tasks.append((channel_info, url_info, execute_check_m3u8))
 
         total_count = len(tasks)
         task_status["total"] = total_count
