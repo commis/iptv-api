@@ -55,7 +55,7 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
                     parser_manager.load_channel_m3u(parser_manager.M3U_URL, use_ignore=False)
                     parser_manager.load_remote_url_txt(parser_manager.TXT_URL, use_ignore=False)
 
-                [parser_manager.load_channel_m3u(url, request.group, use_ignore=False) for url in request.url if url]
+                [parser_manager.load_channel_m3u(url, request.group, use_ignore=True) for url in request.url if url]
 
                 parser_manager.load_remote_url_migu(task_id, request.epg.file, request.rate_type)
                 total_count = channel_manager.total_count()
