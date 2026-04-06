@@ -377,7 +377,7 @@ class Parser:
                 if pid in processed_pids:
                     continue
                 pics = data.get("pics", [])
-                channel_name = data.get("name")
+                channel_name = config_manager.get_channel(data.get("name"))
                 # 提前做过滤处理，减少获取URL的调用
                 category_info = config_manager.get_category_object(channel_name, category_name)
                 if category_info and config_manager.is_exclude(category_info, channel_name):
