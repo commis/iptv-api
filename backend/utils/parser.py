@@ -196,7 +196,8 @@ class Parser:
             for (date_str, relative_date, data_list) in migu_sport_list:
                 for data in data_list:
                     mgdb_id = data.get("mgdbId")
-                    pk_info_title = data.get("pkInfoTitle")
+                    pk_info_title = data.get("pkInfoTitle").split("·")[-1].replace("vs", "VS").replace(" ", "")
+                    competition_name = data.get('competitionName')
                     teams = data.get("confrontTeams")
                     if teams and len(teams) >= 2:
                         pk_info_title = f"{teams[0].get('name')}VS{teams[1].get('name')}"
@@ -215,13 +216,12 @@ class Parser:
                         # 2. 比赛进行中或未开始
                         live_list = body.get("multiPlayList", {}).get("liveList", [])
                         for live in live_list:
-                            name = live.get("name", "")
+                            name = self._process_migu_title(live.get("name", ""))
                             start_time_str = live.get("startTimeStr")
                             if re.search(r".*集锦.*", name) or not start_time_str:
                                 continue
 
-                            competition_desc = (f"{data.get('competitionName')} "
-                                                f"{pk_info_title} {name} {start_time_str[11:16]}")
+                            competition_desc = f"{competition_name} {pk_info_title} {name} {start_time_str[11:16]}"
                             category_info = config_manager.get_category_object(competition_desc, relative_date)
                             if category_info and config_manager.is_exclude(category_info, competition_desc):
                                 continue
@@ -252,7 +252,7 @@ class Parser:
                     '<?xml version="1.0" encoding="utf-8"?>\n'
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
-                process_channel_TV(counter, migu_cates, f)
+                # process_channel_TV(counter, migu_cates, f)
                 process_channel_PE(counter, migu_sports, f)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
@@ -661,9 +661,14 @@ class Parser:
         except Exception:
             return None
 
+    def _process_migu_title(self, name_str):
+        first_converted = re.split(r'[:：]\s*', name_str, 1)[0]
+        second_converted = re.split(r'[·•]\s*', first_converted, 1)[-1]
+        return second_converted
+
     def _get_migu_sport_overed(self, processed_counter, task_id, relative_date, data, body, pk_info_title, mgdb_id):
         try:
-            url = f"http://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/{mgdb_id}/2/miguvideo"
+            url = f"https://app-sc.miguvideo.com/vms-match/v5/staticcache/basic/all-view-list/{mgdb_id}/2/miguvideo"
             relay_body = self._get_url_body(url)
             replay_list = relay_body.get("replayList")
             if not replay_list:
@@ -671,8 +676,9 @@ class Parser:
             if not replay_list:
                 return
 
+            competition_name = data.get('competitionName')
             for replay in replay_list:
-                name = replay.get("name", "")
+                name = self._process_migu_title(replay.get("name", ""))
                 if re.search(r".*集锦|训练.*", name):
                     continue
                 if re.search(r".*回放|赛.*", name):
@@ -682,7 +688,7 @@ class Parser:
                         start_time_str = pre_list[-1].get("startTimeStr")
                         if start_time_str:
                             time_str = start_time_str[11:16]
-                    competition_desc = f"{data.get('competitionName')} {pk_info_title} {name} {time_str}"
+                    competition_desc = f"{competition_name} {pk_info_title} {name} {time_str}"
                     category_info = config_manager.get_category_object(competition_desc, relative_date)
                     if category_info and config_manager.is_exclude(category_info, competition_desc):
                         continue
