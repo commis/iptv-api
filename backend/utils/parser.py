@@ -192,17 +192,20 @@ class Parser:
                     processed_counter.increment()
                 task_manager.update_task(task_id, processed=processed_counter.get_value())
 
-        def process_channel_PE(processed_counter, migu_sport_list, epg_f):
+        def process_channel_PE(processed_counter, migu_sport_list):
             for (date_str, relative_date, data_list) in migu_sport_list:
                 for data in data_list:
                     mgdb_id = data.get("mgdbId")
-                    pk_info_title = data.get("pkInfoTitle").split("·")[-1].replace("vs", "VS").replace(" ", "")
+                    pk_info_title = re.split(
+                        r"·", data.get("pkInfoTitle", ""), 1
+                    )[-1].replace("vs", "VS").replace(" ", "")
                     competition_name = data.get('competitionName')
                     teams = data.get("confrontTeams")
                     if teams and len(teams) >= 2:
                         pk_info_title = f"{teams[0].get('name')}VS{teams[1].get('name')}"
                     try:
-                        url = f"https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/basic-data/{mgdb_id}/miguvideo"
+                        url = (f"https://vms-sc.miguvideo.com/vms-match/v6/staticcache/basic/"
+                               f"basic-data/{mgdb_id}/miguvideo")
                         body = self._get_url_body(url)
 
                         # 1. 比赛已结束
@@ -253,7 +256,7 @@ class Parser:
                     '<tv generator-info-name="Talk" generator-info-url="https://ak3721.top/tv">\n'
                 )
                 process_channel_TV(counter, migu_cates, f)
-                process_channel_PE(counter, migu_sports, f)
+                process_channel_PE(counter, migu_sports)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
             channel_manager.sort()
@@ -640,18 +643,25 @@ class Parser:
             resp_body = self._get_url_body(url)
 
             data_list = []
-            today_str = datetime.now().strftime("%Y%m%d")
+            today = datetime.now().date()
             days = resp_body.get("days", [])
-            for i in range(1, min(4, len(days))):
+            for i in range(0, min(5, len(days))):
                 date_val = days[i]
-                if date_val == today_str:
-                    relative_date = "体育-今天"
-                elif int(date_val) > int(today_str):
-                    relative_date = "体育-明天"
-                else:
-                    relative_date = "体育-昨天"
+                date_obj = datetime.strptime(date_val, "%Y%m%d").date()
+                day_diff = (date_obj - today).days
+                match day_diff:
+                    case -2:
+                        relative_date = "体育-前天"
+                    case -1:
+                        relative_date = "体育-昨天"
+                    case 0:
+                        relative_date = "体育-今天"
+                    case 1:
+                        relative_date = "体育-明天"
+                    case _:
+                        relative_date = None
 
-                if not config_manager.exists(relative_date):
+                if not relative_date or not config_manager.exists(relative_date):
                     continue
 
                 match_list = resp_body.get("matchList", {}).get(date_val, [])
@@ -662,9 +672,20 @@ class Parser:
             return None
 
     def _process_migu_title(self, name_str):
-        first_converted = re.split(r'[:：]\s*', name_str, 1)[0]
-        second_converted = re.split(r'[·•]\s*', first_converted, 1)[-1]
-        return second_converted
+        converted_str = name_str
+        for sep in (":", "："):
+            idx = converted_str.find(sep)
+            if idx != -1:
+                converted_str = converted_str[idx + 1:].lstrip()
+                break
+
+        for sep in ("·", "•"):
+            idx = converted_str.find(sep)
+            if idx != -1:
+                converted_str = converted_str[idx + 1:].lstrip()
+                break
+
+        return converted_str
 
     def _get_migu_sport_overed(self, processed_counter, task_id, relative_date, data, body, pk_info_title, mgdb_id):
         try:

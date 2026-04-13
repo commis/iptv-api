@@ -47,8 +47,8 @@ class BatchCheckRequest(BaseModel):
 
 
 class EpgRequest(BaseModel):
-    file: Optional[str] = Field(default="/tmp/e.xml", description="直播源回放信息文件")
-    url: Optional[str] = Field(default="https://gh-proxy.org/github.com/develop202/migu_video/blob/main/playback.xml",
+    file: Optional[str] = Field(default="/tmp/migu-e.xml", description="直播源回放信息文件")
+    url: Optional[str] = Field(default="https://ak3721.top/tv/epg/migu-e.xml",
                                description="直播源回放信息URL")
     source: Optional[str] = Field(default="&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
                                   description="直播源回放查找参数")
@@ -60,7 +60,7 @@ class EpgRequest(BaseModel):
 class UpdateLiveRequest(BaseModel):
     """更新直播源请求"""
 
-    output: str = Field(default="/tmp/migu3721.txt", description="直播源输出文件名")
+    output: str = Field(default="/tmp/result.txt", description="直播源输出文件名")
     url: Optional[List[str]] = Field(default=[], description="直播源同步URL")
     epg: Optional[EpgRequest] = Field(default=None, description="EPG源信息")
     group: Optional[List[str]] = Field(default=[], description="原始数据的分类过滤保留项")
