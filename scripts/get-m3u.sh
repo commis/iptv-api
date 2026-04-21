@@ -38,16 +38,16 @@ update_m3u() {
     -H 'accept: application/json' \
     -H 'Content-Type: application/json' \
     -d '{
-  "output": "/tmp/migu3721.txt",
+  "output": "/tmp/result.txt",
   "epg": {
     "file": "/tmp/migu-e.xml",
-    "url": "https://tv.ak3721.top/tv/epg/migu-e.xml",
+    "url": "https://ak3721.top/tv/epg/migu-e.xml",
     "source": "&playbackbegin=${(b)yyyyMMddHHmmss}&playbackend=${(e)yyyyMMddHHmmss}",
 	"show_logo": "True"
   }
 }' >/dev/null 2>&1
 
-  target_file='/tmp/migu3721.m3u'
+  target_file='/tmp/result.m3u'
   MAX_TIMEOUT=300
   CHECK_INTERVAL=2
   COUNTER=0
