@@ -264,7 +264,7 @@ class Parser:
             logger.error(f"fetch migu data failed: {e}")
 
     def _get_migu_cate_list(self) -> List[MiguCateInfo]:
-        cache_key = f"migu:live_list"
+        cache_key = f"tv-video:list"
         cache_data = redis_cache.get(cache_key)
         if cache_data:
             cached = json.loads(cache_data)

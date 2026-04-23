@@ -109,7 +109,7 @@ def parse_channel_url(
 
     resp_message = "成功从缓存获取地址"
     try:
-        cache_key = f"migu:video_url:{channel_id}"
+        cache_key = f"tv-video:{channel_id}"
         chanel_url = redis_cache.get(cache_key)
         if not chanel_url:
             chanel_url = parser_manager.get_migu_video_url(resp_data.get("name"), channel_id, rate_type=3)
