@@ -25,7 +25,8 @@ _VOD_CATEGORIES = [
 
 def get_category_name(tid):
     for c in _VOD_CATEGORIES:
-        if c['type_id'] == tid: return c['type_name']
+        if c['type_id'] == tid:
+            return c['type_name']
     return None
 
 
@@ -37,6 +38,7 @@ def get_vod(
     wd: Optional[str] = None,  # 搜索关键词
     pg: int = 1  # 分页
 ):
+    logger.info(f"Request: ac={ac}, t={t}, ids={ids}, wd={wd}")
     # 1. 返回分类列表
     if not ac:
         return {
@@ -61,7 +63,8 @@ def get_vod(
             with open(file_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
-                    if not line: continue
+                    if not line:
+                        continue
 
                     if line.startswith("PIC$"):
                         pic = line.replace("PIC$", "")
@@ -87,10 +90,10 @@ def get_vod(
         for cat in _VOD_CATEGORIES:
             cat_name = cat['type_name']
             path = os.path.join(base_dir, cat_name)
-            if not os.path.exists(path): continue
+            if not os.path.exists(path):
+                continue
 
             for fname in os.listdir(path):
-                # 模糊匹配文件名
                 if wd.lower() in fname.lower() and fname.endswith('.txt'):
                     file_path = os.path.join(path, fname)
                     pic = ""
@@ -110,7 +113,6 @@ def get_vod(
                         "vod_remarks": "搜索结果"
                     })
         return {
-            "code": 1,
             "list": search_results,
             "total": len(search_results),
             "page": 1,
@@ -146,12 +148,11 @@ def get_vod(
                         "vod_remarks": remarks
                     })
         return {
-            "code": 1,
             "list": vlist,
             "total": len(vlist),
             "page": 1,
             "pagecount": 1,
-            "limit": len(vlist)
+            "limit": 20
         }
 
-    return {"list": []}
+    return {"list": [], "page": pg}
