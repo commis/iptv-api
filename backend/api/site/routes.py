@@ -1,5 +1,6 @@
 import os
 from typing import Optional
+from urllib.parse import unquote
 
 from fastapi import APIRouter
 
@@ -118,7 +119,7 @@ def get_vod(
 
     # 4. 点击导航栏分类
     if ac == 'list' and t:
-        cat_name = get_category_name(t)
+        cat_name = get_category_name(unquote(t))
         cat_path = os.path.join(base_dir, cat_name)
         vlist = []
         if os.path.exists(cat_path):
