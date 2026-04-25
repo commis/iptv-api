@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import threading
@@ -21,17 +22,24 @@ class ConfigManager:
         self._lock = threading.RLock()
 
         # 初始化加载配置
-        self._config_path = config_path or os.path.normpath(
+        site_config_path = os.path.normpath(
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "..",
-                "..",
-                "spider",
-                "dist",
+                "../../spider/dist/conf",
+                "sites.json",
+            )
+        )
+        with open(site_config_path, 'r', encoding='utf-8') as f:
+            self._site_class = json.load(f)
+
+        service_config_path = config_path or os.path.normpath(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                "../../spider/dist",
                 "service.yaml",
             )
         )
-        full_config = self._load_config()
+        full_config = self._load_config(service_config_path)
         self._redis_config: Dict[str, Any] = full_config["redis_cache"]
         self._site_cnfig: Dict[str, str] = full_config["site_config"]
         self._category_map: Dict[str, str] = full_config["category_map"]
@@ -47,19 +55,23 @@ class ConfigManager:
         return self._redis_config
 
     @property
-    def site_cnconfig(self):
+    def site_config(self):
         return self._site_cnfig
 
-    def _load_config(self) -> Dict[str, Any]:
+    @property
+    def site_class(self):
+        return self._site_class
+
+    def _load_config(self, config_path) -> Dict[str, Any]:
         """加载完整配置（仅临时使用）"""
-        if not os.path.exists(self._config_path):
+        if not os.path.exists(config_path):
             raise FileNotFoundError(
-                f"the config is not exist, file：{self._config_path}\n"
+                f"the config is not exist, file：{config_path}\n"
                 f"Please check spider/service.yaml file"
             )
 
         try:
-            with open(self._config_path, "r", encoding="utf-8") as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 config_data = yaml.safe_load(f)
 
             # 校验核心节点
