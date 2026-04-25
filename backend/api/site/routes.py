@@ -51,15 +51,30 @@ def get_vod(
     if ac == 'detail' and ids:
         file_path = os.path.join(base_dir, ids)
         if os.path.exists(file_path):
+            pic = ""
+            content = "暂无简介"
+            play_urls = []
+
             with open(file_path, 'r', encoding='utf-8') as f:
-                content = "#".join([line.strip() for line in f if line.strip()])
+                for line in f:
+                    line = line.strip()
+                    if not line: continue
+
+                    if line.startswith("PIC$"):
+                        pic = line.replace("PIC$", "")
+                    elif line.startswith("CONTENT$"):
+                        content = line.replace("CONTENT$", "")
+                    else:
+                        play_urls.append(line)
 
             return {
                 "list": [{
                     "vod_id": ids,
                     "vod_name": ids.split('/')[-1].replace('.txt', ''),
+                    "vod_pic": pic or "",
+                    "vod_content": content,
                     "vod_play_from": "在线直链",
-                    "vod_play_url": content
+                    "vod_play_url": "#".join(play_urls)
                 }]
             }
 
