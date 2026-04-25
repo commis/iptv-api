@@ -3,9 +3,11 @@ from typing import Optional
 
 from fastapi import APIRouter
 
+from core.logger_factory import LoggerFactory
 from services import config_manager
 
 router = APIRouter(prefix="/site", tags=["点播接口"])
+logger = LoggerFactory.get_logger(__name__)
 
 # 定义分类 ID 映射（横向导航）
 _VOD_CATEGORIES = [
@@ -29,8 +31,8 @@ def get_category_name(tid):
 @router.get("/vod", summary="查询点播数据")
 def get_vod(
     ac: Optional[str] = None,
-    t: Optional[str] = None,   # 分类ID
-    ids: Optional[str] = None, # 详情ID (格式: 分类/文件名.txt)
+    t: Optional[str] = None,  # 分类ID
+    ids: Optional[str] = None,  # 详情ID (格式: 分类/文件名.txt)
     wd: Optional[str] = None,  # 搜索关键词
     pg: int = 1  # 分页
 ):
@@ -84,15 +86,35 @@ def get_vod(
         for cat in _VOD_CATEGORIES:
             cat_name = cat['type_name']
             path = os.path.join(base_dir, cat_name)
-            if os.path.exists(path):
-                for fname in os.listdir(path):
-                    if wd in fname and fname.endswith('.txt'):
-                        search_results.append({
-                            "vod_id": f"{cat_name}/{fname}",
-                            "vod_name": fname.replace('.txt', ''),
-                            "vod_pic": "https://icons8.com"
-                        })
-        return {"list": search_results}
+            if not os.path.exists(path): continue
+
+            for fname in os.listdir(path):
+                # 模糊匹配文件名
+                if wd.lower() in fname.lower() and fname.endswith('.txt'):
+                    file_path = os.path.join(path, fname)
+                    pic = ""
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            first_line = f.readline().strip()
+                            if first_line.startswith("PIC$"):
+                                pic = first_line.replace("PIC$", "")
+                    except:
+                        pass
+
+                    search_results.append({
+                        "vod_id": f"{cat_name}/{fname}",
+                        "vod_name": fname.replace('.txt', ''),
+                        "vod_pic": pic,
+                        "type_name": cat_name,
+                        "vod_remarks": "搜索结果"
+                    })
+        return {
+            "code": 1,
+            "list": search_results,
+            "total": len(search_results),
+            "page": 1,
+            "pagecount": 1
+        }
 
     # 4. 点击导航栏分类
     if ac == 'list' and t:
@@ -102,12 +124,28 @@ def get_vod(
         if os.path.exists(cat_path):
             for fname in os.listdir(cat_path):
                 if fname.endswith('.txt'):
+                    file_path = os.path.join(cat_path, fname)
+                    pic = ""
+                    remarks = ""
+                    try:
+                        with open(file_path, 'r', encoding='utf-8') as f:
+                            for _ in range(3):
+                                line = f.readline().strip()
+                                if line.startswith("PIC$"):
+                                    pic = line.replace("PIC$", "")
+                                elif line.startswith("REMARKS$"):
+                                    remarks = line.replace("REMARKS$", "")
+                    except Exception as e:
+                        logger.error(f"读取文件预览失败: {e}")
+
                     vlist.append({
                         "vod_id": f"{cat_name}/{fname}",
                         "vod_name": fname.replace('.txt', ''),
-                        "vod_pic": "https://icons8.com"
+                        "vod_pic": pic,
+                        "vod_remarks": remarks
                     })
         return {
+            "code": 1,
             "list": vlist,
             "total": len(vlist),
             "page": 1,
