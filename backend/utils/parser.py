@@ -9,7 +9,7 @@ from typing import List
 import requests
 import urllib3
 
-from api.tv.converter import LiveConverter
+from api.live.converter import LiveConverter
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from models.counter import Counter

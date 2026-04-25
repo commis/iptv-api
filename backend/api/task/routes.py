@@ -5,7 +5,7 @@ from fastapi import APIRouter, Path, status
 from services.task import task_manager
 from utils.handler import handle_exception
 
-router = APIRouter(prefix="/task", tags=["任务管理器"])
+router = APIRouter(prefix="/task", tags=["任务管理接口"])
 
 
 @router.get("/list", summary="获取所有任务列表")

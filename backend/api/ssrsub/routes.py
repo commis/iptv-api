@@ -4,7 +4,7 @@ from fastapi.responses import Response
 from services.subscribe import subscribe_service
 from utils.handler import handle_exception
 
-router = APIRouter(prefix="/sub", tags=["VPN白嫖订阅"])
+router = APIRouter(prefix="/sub", tags=["VPN白嫖订阅接口"])
 
 
 @router.get("/clash", summary="获取clash订阅节点列表", response_model=str)

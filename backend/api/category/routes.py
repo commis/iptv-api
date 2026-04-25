@@ -7,7 +7,7 @@ from starlette import status
 from services import config_manager
 from utils.handler import handle_exception
 
-router = APIRouter(prefix="/category", tags=["分类图标管理"])
+router = APIRouter(prefix="/category", tags=["分类管理接口"])
 
 
 class UpdateCategoryRequest(BaseModel):

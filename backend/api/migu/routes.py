@@ -16,7 +16,7 @@ from services.task import task_manager
 from utils.handler import handle_exception
 from utils.parser import parser_manager
 
-router = APIRouter(prefix="/migu", tags=["MIGU工具"])
+router = APIRouter(prefix="/migu", tags=["Migu直播接口"])
 logger = LoggerFactory.get_logger(__name__)
 
 

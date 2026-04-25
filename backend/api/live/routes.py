@@ -4,8 +4,8 @@ from fastapi import APIRouter, BackgroundTasks, Body, Query
 from fastapi.responses import Response
 from starlette import status
 
-from api.tv.converter import LiveConverter
-from api.tv.merger import LiveMerger
+from api.live.converter import LiveConverter
+from api.live.merger import LiveMerger
 from core.logger_factory import LoggerFactory
 from models.api_request import BatchCheckRequest, UpdateLiveRequest, SingleCheckRequest
 from models.api_response import TaskResponse
@@ -16,7 +16,7 @@ from services.task import task_manager
 from utils.handler import handle_exception
 from utils.parser import Parser, parser_manager
 
-router = APIRouter(prefix="/tv", tags=["M3U工具"])
+router = APIRouter(prefix="/live", tags=["直播接口"])
 logger = LoggerFactory.get_logger(__name__)
 
 
