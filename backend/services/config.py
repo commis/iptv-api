@@ -181,7 +181,7 @@ class ConfigManager:
 
         # 没有对应的分类时，构造储一个新的分类
         target_info = self._categories.get(category_name)
-        return target_info if target_info else self._categories.get("其他频道")
+        return target_info if target_info else self._categories.get("其他收藏")
 
     def update_category(self, category_infos: Dict[str, Dict[str, object]]) -> None:
         """
