@@ -1,8 +1,7 @@
-import json
 import os
 import re
 import threading
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 import yaml
 
@@ -18,49 +17,52 @@ class ConfigManager:
     _channel_relations_fix: Dict[str, Dict[str, object]] = {}
     _chanbel_compiled_patterns = []
 
+    _site_collects: List[str] = []
+    _site_class: List[Dict] = []
+    _site_videos: Dict[str, List[str]] = {}
+
     def __init__(self, config_path: str = None):
         self._lock = threading.RLock()
-
-        # 初始化加载配置
-        site_config_path = os.path.normpath(
-            os.path.join(
-                os.path.dirname(os.path.abspath(__file__)),
-                "../../spider/dist/conf",
-                "sites.json",
-            )
-        )
-        with open(site_config_path, 'r', encoding='utf-8') as f:
-            self._site_class = json.load(f)
 
         service_config_path = config_path or os.path.normpath(
             os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
-                "../../spider/dist",
+                "../../spider/dist/conf",
                 "service.yaml",
             )
         )
         full_config = self._load_config(service_config_path)
+
+        # 基础配置
         self._redis_config: Dict[str, Any] = full_config["redis_cache"]
-        self._site_cnfig: Dict[str, str] = full_config["site_config"]
         self._category_map: Dict[str, str] = full_config["category_map"]
         self._ignore_categories: Dict[str, str] = full_config["ignore_category"]
         self._channel_id_map: Dict[str, str] = full_config["channel_id_map"]
         self._channel_name_map: Dict[str, str] = full_config["channel_name_map"]
         self._categories: Dict[str, Dict[str, Any]] = full_config["channel_map"]
 
+        site_config_tmp: Dict[str, Any] = full_config.get("site_config", {})
+        self._init_site_classes(site_config_tmp)
+        del site_config_tmp
+
         self._init_channel_relations()
+        del full_config
 
     @property
     def redis_config(self):
         return self._redis_config
 
     @property
-    def site_config(self):
-        return self._site_cnfig
-
-    @property
     def site_class(self):
         return self._site_class
+
+    @property
+    def site_collections(self):
+        return self._site_collects
+
+    @property
+    def site_videos(self):
+        return self._site_videos
 
     def _load_config(self, config_path) -> Dict[str, Any]:
         """加载完整配置（仅临时使用）"""
@@ -91,6 +93,14 @@ class ConfigManager:
             raise RuntimeError(f"failed to parse yaml：{str(e)}")
         except Exception as e:
             raise RuntimeError(f"load yaml exception：{str(e)}")
+
+    def _init_site_classes(self, config_data: Dict[str, Any]):
+        class_config = config_data.get("class", {})
+        for idx, (cat_name, data) in enumerate(class_config.items(), start=1):
+            self._site_class.append({"type_id": str(idx), "type_name": cat_name})
+            self._site_videos[cat_name] = data.get("episodes", [])
+
+        self._site_collects = config_data.get("collect_sites", [])
 
     def _init_channel_relations(self):
         """初始化频道名称与分类的映射关系"""
@@ -212,6 +222,12 @@ class ConfigManager:
     def get_channel_id(self, channel_id: str) -> str:
         # channel_id = channel_id.replace("频道", "").replace("广播电视台", "")
         return self._channel_id_map.get(channel_id, channel_id)
+
+    def get_site_cate_name(self, tid: str | str) -> str | None:
+        for c in self._site_class:
+            if c["type_id"] == tid:
+                return c["type_name"]
+        return None
 
 
 config_manager = ConfigManager()
