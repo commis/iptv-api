@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from starlette import status
 
@@ -24,22 +24,6 @@ def get_all_category_icons():
     return config_manager.list_categories()
 
 
-@router.post("/data", summary="添加/更新分类", response_model=Dict[str, object])
-def update_category_data(
-    request: UpdateCategoryRequest = Body(..., media_type="application/json", description="更新分类数据")):
-    """
-    添加或更新分类图标
-    """
-    if not request:
-        handle_exception("icon data is empty", status.HTTP_400_BAD_REQUEST)
-
-    try:
-        config_manager.update_category({request.name: request.model_dump()})
-        return config_manager.list_categories()
-    except Exception as e:
-        handle_exception(str(e))
-
-
 @router.get("/{category_name}", summary="获取单个分类", response_model=Dict[str, object])
 def get_category_info(category_name: str):
     """获取指定分类的图标"""
@@ -48,14 +32,29 @@ def get_category_info(category_name: str):
         handle_exception(f"category '{category_name}' not found", status.HTTP_404_NOT_FOUND)
     return category_info
 
+# @router.post("/data", summary="添加/更新分类", response_model=Dict[str, object])
+# def update_category_data(
+#     request: UpdateCategoryRequest = Body(..., media_type="application/json", description="更新分类数据")):
+#     """
+#     添加或更新分类图标
+#     """
+#     if not request:
+#         handle_exception("icon data is empty", status.HTTP_400_BAD_REQUEST)
+#
+#     try:
+#         config_manager.update_category({request.name: request.model_dump()})
+#         return config_manager.list_categories()
+#     except Exception as e:
+#         handle_exception(str(e))
 
-@router.delete("/{category_name}", summary="删除分类", response_model=Dict[str, object])
-def delete_category_icon(category_name: str):
-    """
-    删除指定分类的图标
-    """
-    if not config_manager.exists(category_name):
-        raise HTTPException(status_code=404, detail=f"分类 '{category_name}' 不存在")
 
-    config_manager.remove_category(category_name)
-    return config_manager.list_categories()
+# @router.delete("/{category_name}", summary="删除分类", response_model=Dict[str, object])
+# def delete_category_icon(category_name: str):
+#     """
+#     删除指定分类的图标
+#     """
+#     if not config_manager.exists(category_name):
+#         raise HTTPException(status_code=404, detail=f"分类 '{category_name}' 不存在")
+#
+#     config_manager.remove_category(category_name)
+#     return config_manager.list_categories()

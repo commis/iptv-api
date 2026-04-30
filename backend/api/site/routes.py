@@ -1,123 +1,78 @@
-import os
-from typing import Optional
+from typing import Optional, Dict
 from urllib.parse import unquote
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
+from api.site.collector import VideoCollector
 from core.logger_factory import LoggerFactory
 from services import config_manager
 
 router = APIRouter(prefix="/site", tags=["点播接口"])
 logger = LoggerFactory.get_logger(__name__)
 
-
-def get_category_name(tid):
-    for c in config_manager.site_class:
-        if c['type_id'] == tid:
-            return c['type_name']
-    return None
+collector = VideoCollector()
 
 
-@router.get("/vod", summary="查询点播数据")
-def get_vod(
-    ac: Optional[str] = None,
-    t: Optional[str] = None,  # 分类ID
-    ids: Optional[str] = None,  # 详情ID (格式: 分类/文件名.txt)
-    wd: Optional[str] = None,  # 搜索关键词
-    pg: int = 1  # 分页
+def get_video_from_redis(cat_name: str, video_name: str) -> Dict | None:
+    redis_key = f"tv-vod:{cat_name}:{video_name}"
+    redis_data = VideoCollector.redis_get(redis_key)
+    if redis_data:
+        return redis_data
+
+    return {
+        "vod_id": f"{cat_name}/{video_name}",
+        "vod_name": video_name,
+        "type_name": cat_name,
+        "vod_remarks": "未采集",
+    }
+
+
+@router.get("/edu/vod", summary="查询点播数据")
+async def get_vod(
+    ac: Optional[str] = Query(None, description="操作名称，例如：[list | detail]"),
+    t: Optional[str] = Query(None, description="分类ID，例如：1"),
+    ids: Optional[str] = Query(None, description="详情ID (格式: 分类/文件名)"),
+    wd: Optional[str] = Query(None, description="搜索关键词"),
+    pg: int = Query(1, description="分页，默认值：1")  #
 ):
     # logger.info(f"Receive vod: ac={ac}, t={t}, ids={ids}, wd={wd}, pg={pg}")
-    base_dir = config_manager.site_config.get("base")
+    site_class = config_manager.site_class
+    site_videos = config_manager.site_videos
 
-    # 1. 搜索逻辑：必须放在最前面，因为搜索时 ac 可能为 None
+    # 搜索
     if wd:
-        search_results = []
-        for cat in config_manager.site_class:
-            cat_name = cat['type_name']
-            path = os.path.join(base_dir, cat_name)
-            if not os.path.exists(path): continue
+        res = []
+        for cat, videos in site_videos.items():
+            for name in videos:
+                if wd in name:
+                    res.append(get_video_from_redis(cat, name))
+        return {"class": site_class, "list": res, "total": len(res), "page": pg}
 
-            for fname in os.listdir(path):
-                if wd.lower() in fname.lower() and fname.endswith('.txt'):
-                    pic, remarks = "", ""
-                    try:
-                        with open(os.path.join(path, fname), 'r', encoding='utf-8') as f:
-                            for _ in range(10):
-                                line = f.readline().strip()
-                                if line.startswith("PIC$"): pic = line.replace("PIC$", "")
-                                if line.startswith("REMARKS$"): remarks = line.replace("REMARKS$", "")
-                    except:
-                        pass
+    # 详情
+    if ac == "detail" and ids:
+        try:
+            vod_id = unquote(ids)
+            cat_name, video_name = vod_id.split("/", 1)
+        except:
+            return {"list": []}
 
-                    search_results.append({
-                        "vod_id": f"{cat_name}/{fname}",
-                        "vod_name": fname.replace('.txt', ''),
-                        "vod_pic": pic,
-                        "type_name": cat_name,
-                        "vod_remarks": remarks or "搜索结果"
-                    })
-        return {"list": search_results, "total": len(search_results), "page": 1, "pagecount": 1}
+        cache = get_video_from_redis(cat_name, video_name)
+        return cache if cache else {"list": []}
 
-    # 2. 详情逻辑：处理具体的播放视频请求
-    if ac == 'detail' and ids:
-        file_path = os.path.join(base_dir, unquote(ids))
-        if os.path.exists(file_path):
-            pic, content, play_urls = "", "暂无简介", []
-            with open(file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line: continue
-                    if line.startswith("PIC$"):
-                        pic = line.replace("PIC$", "")
-                    elif line.startswith("CONTENT$"):
-                        content = line.replace("CONTENT$", "")
-                    elif line.startswith("REMARKS$"):
-                        continue
-                    else:
-                        play_urls.append(line)
-
-            return {
-                "list": [{
-                    "vod_id": ids,
-                    "vod_name": os.path.basename(ids).replace('.txt', ''),
-                    "vod_pic": pic,
-                    "vod_content": content,
-                    "vod_play_from": "在线直链",
-                    "vod_play_url": "#".join(play_urls)
-                }]
-            }
-
-    # 3. 分类内容请求：适配 ac=list&t=1 和 ac=detail&t=1 (OK影视特征)
+    # 分类列表
     if t:
-        cat_name = get_category_name(unquote(str(t)))
-        cat_path = os.path.join(base_dir, cat_name)
-        vlist = []
-        if os.path.exists(cat_path):
-            for fname in sorted(os.listdir(cat_path)):
-                if fname.endswith('.txt'):
-                    pic, remarks = "", ""
-                    try:
-                        with open(os.path.join(cat_path, fname), 'r', encoding='utf-8') as f:
-                            for _ in range(5):
-                                line = f.readline().strip()
-                                if line.startswith("PIC$"):
-                                    pic = line.replace("PIC$", "")
-                                elif line.startswith("REMARKS$"):
-                                    remarks = line.replace("REMARKS$", "")
-                    except:
-                        pass
+        cat_name = config_manager.get_site_cate_name(t)
+        videos = site_videos.get(cat_name, [])
+        data = [get_video_from_redis(cat_name, name) for name in videos]
+        return {"class": site_class, "list": data, "total": len(data), "page": pg}
 
-                    vlist.append({
-                        "vod_id": f"{cat_name}/{fname}",
-                        "vod_name": fname.replace('.txt', ''),
-                        "vod_pic": pic,
-                        "vod_remarks": remarks
-                    })
-        return {"list": vlist, "total": len(vlist), "page": pg, "pagecount": 1}
+    # 默认
+    return {"class": site_class, "list": [], "total": 0, "page": 1}
 
-    # 4. 兜底逻辑：无参数时返回分类定义
-    return {
-        "class": config_manager.site_class,
-        "list": [],
-        "total": 0, "page": 1, "pagecount": 1, "limit": 20
-    }
+
+@router.post("/collect/all", summary="全量采集")
+async def collect_all(
+    update: bool = Query(False, description="True=强制更新所有缓存")
+):
+    result = await collector.collect_all_videos(update=update)
+    return {"msg": "采集完成", **result}

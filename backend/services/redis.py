@@ -11,7 +11,7 @@ except ImportError:
 logger = LoggerFactory.get_logger(__name__)
 
 
-class RedisCache:
+class RedisClient:
 
     def __init__(self):
         self._client = None
@@ -47,7 +47,17 @@ class RedisCache:
             logger.warning(f"redis get failed, key={key}, error={e}")
             return None
 
-    def set(self, key: str, value: str, ex: int = -1) -> None:
+    def set(self, key: str, value: str) -> None:
+        self._init_client()
+        if not self._client:
+            return
+
+        try:
+            self._client.set(key, value)
+        except Exception as e:
+            logger.warning(f"redis set failed, key={key}, error={e}")
+
+    def set_ex(self, key: str, value: str, ex: int = -1) -> None:
         self._init_client()
         if not self._client:
             return
@@ -60,4 +70,4 @@ class RedisCache:
             logger.warning(f"redis set failed, key={key}, error={e}")
 
 
-redis_cache = RedisCache()
+redis_client = RedisClient()

@@ -15,7 +15,7 @@ from core.logger_factory import LoggerFactory
 from models.counter import Counter
 from models.migu_info import MiguCateInfo, MiguDataInfo
 from services import channel_manager, config_manager, task_manager
-from services.redis import redis_cache
+from services.redis import redis_client
 from utils.encry_util import getStringMD5
 from utils.string_util import get_xml_cvt_string, seconds_to_time_str, ms2time_str
 
@@ -265,7 +265,7 @@ class Parser:
 
     def _get_migu_cate_list(self) -> List[MiguCateInfo]:
         cache_key = f"tv-live:list"
-        cache_data = redis_cache.get(cache_key)
+        cache_data = redis_client.get(cache_key)
         if cache_data:
             cached = json.loads(cache_data)
             return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
@@ -288,7 +288,7 @@ class Parser:
             cate_list.append(MiguCateInfo(name, vid))
             appended_cates.add(name)
 
-        redis_cache.set(
+        redis_client.set_ex(
             cache_key,
             json.dumps([{"name": c.name, "vid": c.vid} for c in cate_list]),
             24 * 3600
