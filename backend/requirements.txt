@@ -3,6 +3,7 @@ requests==2.32.3
 fastapi==0.115.4
 gunicorn==22.0.0
 uvicorn==0.29.0
+httpx==0.28.1
 
 # 网页、视频解析核心
 soupsieve==2.5
