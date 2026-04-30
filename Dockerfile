@@ -9,9 +9,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc ffmpeg libssl-dev libffi-dev ca-certificates \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN sed -i "s@deb.debian.org@mirrors.aliyun.com@g" /etc/apt/sources.list.d/debian.sources && \
+    sed -i "s@security.debian.org@mirrors.aliyun.com@g" /etc/apt/sources.list.d/debian.sources
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc ffmpeg libssl-dev libffi-dev ca-certificates && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /ffmpeg_libs && \
     cp /usr/bin/ffmpeg /usr/bin/ffprobe /ffmpeg_libs/ && \
