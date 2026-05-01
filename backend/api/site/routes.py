@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from urllib.parse import unquote
 
 from fastapi import APIRouter, Query
@@ -11,6 +11,20 @@ router = APIRouter(prefix="/site", tags=["点播接口"])
 logger = LoggerFactory.get_logger(__name__)
 
 collector = VideoCollector()
+
+
+def paginate_list(data_list: List[Dict], page: int, page_size: int = 20) -> Dict:
+    total = len(data_list)
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_data = data_list[start:end]
+
+    # 只返回 TVBox 需要的 3 个字段！
+    return {
+        "list": page_data,
+        "total": total,
+        "page": page
+    }
 
 
 def get_video_from_redis(cat_name: str, video_name: str) -> Dict | None:
@@ -46,7 +60,8 @@ async def get_vod(
             for name in videos:
                 if wd in name:
                     res.append(get_video_from_redis(cat, name))
-        return {"class": site_class, "list": res, "total": len(res), "page": pg}
+        page_result = paginate_list(res, pg)
+        return {"class": site_class, **page_result}
 
     # 详情
     if ac == "detail" and ids:
@@ -64,9 +79,10 @@ async def get_vod(
         cat_name = config_manager.get_site_cate_name(t)
         videos = site_videos.get(cat_name, [])
         data = [get_video_from_redis(cat_name, name) for name in videos]
-        return {"class": site_class, "list": data, "total": len(data), "page": pg}
+        page_result = paginate_list(data, pg)
+        return {"class": site_class, **page_result}
 
-    # 默认
+    # 兜底的默认数据
     return {"class": site_class, "list": [], "total": 0, "page": 1}
 
 
