@@ -98,6 +98,7 @@ class LoggerFactory:
         # 关闭特殊模块日志
         logging.getLogger("urllib3.connectionpool").setLevel(logging.ERROR)
         logging.getLogger("requests").setLevel(logging.ERROR)
+        logging.getLogger("httpx").setLevel(logging.ERROR)
 
         # 控制是否输出到控制台
         if not with_console:

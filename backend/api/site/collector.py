@@ -10,6 +10,11 @@ from services.redis import redis_client
 
 logger = LoggerFactory.get_logger(__name__)
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*"
+}
+
 
 class VideoCollector:
 
@@ -66,14 +71,18 @@ class VideoCollector:
                         skipped += 1
                         continue
 
+                    collect_success = False
                     data = await self._collect_detail(client, video_name)
                     if data and data.get("list"):
-                        # remaid_data = {"list": self.filter_list(data["list"])}
-                        remaid_data = self.filter_fields(data["list"][0])
-                        self.redis_set(redis_key, remaid_data)
-                        success += 1
-                        logger.info(f"采集完成：{cat_name}/{video_name}")
-                    else:
+                        data_list = self.filter_list(data["list"])
+                        for video in data_list:
+                            if video.get("vod_name") == video_name:
+                                collect_success = True
+                                self.redis_set(redis_key, video)
+                                success += 1
+                                logger.debug(f"采集完成：{cat_name}/{video_name}")
+                                break
+                    if not collect_success:
                         logger.warning(f"采集失败：{cat_name}/{video_name}")
 
         return {
@@ -88,7 +97,7 @@ class VideoCollector:
             try:
                 params = {"ac": "detail", "wd": video_name}
                 url = f"{site}?{urlencode(params)}"
-                resp = await client.get(url)
+                resp = await client.get(url, headers=headers)
                 resp.raise_for_status()
                 data = resp.json()
                 if data and len(data.get("list", [])) > 0:
