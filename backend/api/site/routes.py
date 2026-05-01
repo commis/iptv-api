@@ -49,7 +49,7 @@ async def get_vod(
     wd: Optional[str] = Query(None, description="搜索关键词"),
     pg: int = Query(1, description="分页，默认值：1")  #
 ):
-    logger.info(f"edu vod: ac={ac}, t={t}, ids={ids}, wd={wd}, pg={pg}")
+    logger.debug(f"edu vod: ac={ac}, t={t}, ids={ids}, wd={wd}, pg={pg}")
     site_class = config_manager.site_class
     site_videos = config_manager.site_videos
 

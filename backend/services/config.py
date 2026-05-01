@@ -34,6 +34,7 @@ class ConfigManager:
         full_config = self._load_config(service_config_path)
 
         # 基础配置
+        self._log_level = full_config.get("service", {}).get("log_level", "info")
         self._redis_config: Dict[str, Any] = full_config["redis_cache"]
         self._category_map: Dict[str, str] = full_config["category_map"]
         self._ignore_categories: Dict[str, str] = full_config["ignore_category"]
@@ -47,6 +48,10 @@ class ConfigManager:
 
         self._init_channel_relations()
         del full_config
+
+    @property
+    def log_level(self) -> str:
+        return self._log_level
 
     @property
     def redis_config(self):
