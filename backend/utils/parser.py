@@ -650,8 +650,8 @@ class Parser:
                 date_obj = datetime.strptime(date_val, "%Y%m%d").date()
                 day_diff = (date_obj - today).days
                 match day_diff:
-                    case -2:
-                        relative_date = "体育-前天"
+                    # case -2:
+                    #     relative_date = "体育-前天"
                     case -1:
                         relative_date = "体育-昨天"
                     case 0:
