@@ -71,18 +71,12 @@ class VideoCollector:
                         skipped += 1
                         continue
 
-                    collect_success = False
-                    data = await self._collect_detail(client, video_name)
-                    if data and data.get("list"):
-                        data_list = self.filter_list(data["list"])
-                        for video in data_list:
-                            if video.get("vod_name") == video_name:
-                                collect_success = True
-                                self.redis_set(redis_key, video)
-                                success += 1
-                                logger.debug(f"采集完成：{cat_name}/{video_name}")
-                                break
-                    if not collect_success:
+                    video_data = await self._collect_detail(client, video_name)
+                    if video_data:
+                        self.redis_set(redis_key, video_data)
+                        success += 1
+                        logger.debug(f"采集完成：{cat_name}/{video_name}")
+                    else:
                         logger.warning(f"采集失败：{cat_name}/{video_name}")
 
         return {
@@ -101,7 +95,10 @@ class VideoCollector:
                 resp.raise_for_status()
                 data = resp.json()
                 if data and len(data.get("list", [])) > 0:
-                    return data
+                    data_list = self.filter_list(data["list"])
+                    for video in data_list:
+                        if video.get("vod_name") == video_name:
+                            return video
             except Exception:
                 continue
         return None
