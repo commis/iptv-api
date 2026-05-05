@@ -83,7 +83,7 @@ async def get_vod(
 
     # 分类列表
     if t:
-        cat_name = config_manager.get_site_cate_name(t)
+        cat_name = site_config.get_site_cate_name(t)
         videos = site_videos.get(cat_name, [])
         data = [get_video_from_redis(cat_name, name) for name in videos]
         page_result = paginate_list(data, pg)
