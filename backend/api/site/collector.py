@@ -1,10 +1,12 @@
 import json
+import time
 from typing import Dict, List
 from urllib.parse import urlencode
 
 import httpx
 
 from core.logger_factory import LoggerFactory
+from models.counter import Counter
 from services import config_manager
 from services.redis import redis_client
 
@@ -56,38 +58,45 @@ class VideoCollector:
         except json.JSONDecodeError:
             return None
 
-    async def collect_all_videos(self, update: bool = False):
-        total = 0
-        success = 0
+    async def collect_all_videos(self, task_status, is_full: bool = False):
+        total_count = task_status["total"]
+        success_counter = Counter()
+        processed_counter = Counter()
         skipped = 0
 
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
-            for cat_name, video_names in config_manager.site_videos.items():
+            site_config = config_manager.video_vod_config
+            for cat_name, video_names in site_config.site_videos.items():
                 for video_name in video_names:
-                    total += 1
+                    current_processed = processed_counter.increment()
                     redis_key = f"tv-vod:{cat_name}:{video_name}"
-
-                    if not update and self.redis_get(redis_key):
+                    if not is_full and self.redis_get(redis_key):
                         skipped += 1
                         continue
 
                     video_data = await self._collect_detail(client, video_name)
                     if video_data:
                         self.redis_set(redis_key, video_data)
-                        success += 1
+                        success_counter.increment()
                         logger.debug(f"采集完成：{cat_name}/{video_name}")
                     else:
                         logger.warning(f"采集失败：{cat_name}/{video_name}")
 
+                    task_status.update({
+                        "processed": current_processed,
+                        "progress": round(current_processed / total_count * 100, 2),
+                        "success": success_counter.get_value(),
+                        "updated_at": int(time.time()),
+                    })
+
         return {
-            "total": total,
-            "success": success,
-            "skipped": skipped,
-            "update_mode": update
+            "success": success_counter.get_value(),
+            "skipped": skipped
         }
 
     async def _collect_detail(self, client: httpx.AsyncClient, video_name: str):
-        for site in config_manager.site_collections:
+        site_config = config_manager.video_vod_config
+        for site in site_config.site_collections:
             try:
                 params = {"ac": "detail", "wd": video_name}
                 url = f"{site}?{urlencode(params)}"

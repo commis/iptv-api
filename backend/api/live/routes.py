@@ -63,9 +63,9 @@ def check_single_channel(request: SingleCheckRequest) -> Response:
 def check_batch_channels(request: BatchCheckRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     """异步批量检查多个电视频道"""
     try:
+        task_manager.clear()
         if request.is_clear:
             channel_manager.clear()
-            task_manager.clear()
 
         channel_manager.set_epg()
 
@@ -114,9 +114,9 @@ def update_m3u_sources(request: UpdateLiveRequest, background_tasks: BackgroundT
         if request.url is None or request.epg is None:
             raise Exception("url or epg is empty")
 
+        task_manager.clear()
         if request.is_clear:
             channel_manager.clear()
-            task_manager.clear()
 
         if request.epg.domain:
             parser_manager.set_domain(request.epg.domain)
@@ -286,9 +286,9 @@ def check_live_sources(
         if not txt_data:
             handle_exception("invalidate input: empty txt text", status.HTTP_400_BAD_REQUEST)
 
+        task_manager.clear()
         if is_clear:
             channel_manager.clear()
-            task_manager.clear()
 
         channel_manager.set_epg()
 

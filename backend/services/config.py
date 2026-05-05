@@ -8,18 +8,65 @@ import yaml
 from core.singleton import singleton
 
 
+class SiteVideoConfig:
+    """
+    点播原的相关配置信息
+    """
+
+    _site_collects: List[str] = []
+    _site_class: List[Dict] = []
+    _site_videos: Dict[str, List[str]] = {}
+
+    _default_cover = ""
+    _video_total = 0
+
+    def __init__(self, config_data: Dict[str, Any]):
+        self._site_collects = config_data.get("collect_sites", [])
+        self._default_cover = config_data.get("default_cover", "")
+
+        class_config = config_data.get("class", {})
+        for idx, (cat_name, data) in enumerate(class_config.items(), start=1):
+            episodes = data.get("episodes", [])
+            self._site_class.append({"type_id": str(idx), "type_name": cat_name})
+            self._site_videos[cat_name] = episodes
+            self._video_total += len(episodes)
+
+    @property
+    def site_video_cover(self):
+        return self._default_cover
+
+    @property
+    def video_total(self):
+        return self._video_total
+
+    @property
+    def site_class(self):
+        return self._site_class
+
+    @property
+    def site_collections(self):
+        return self._site_collects
+
+    @property
+    def site_videos(self):
+        return self._site_videos
+
+    def get_site_cate_name(self, tid: str | str) -> str | None:
+        for c in self._site_class:
+            if c["type_id"] == tid:
+                return c["type_name"]
+        return None
+
+
 @singleton
 class ConfigManager:
     """
     管理分类与图标映射关系的单例类
     """
 
+    _video_vod_config: SiteVideoConfig = None
     _channel_relations_fix: Dict[str, Dict[str, object]] = {}
     _chanbel_compiled_patterns = []
-
-    _site_collects: List[str] = []
-    _site_class: List[Dict] = []
-    _site_videos: Dict[str, List[str]] = {}
 
     def __init__(self, config_path: str = None):
         self._lock = threading.RLock()
@@ -43,7 +90,7 @@ class ConfigManager:
         self._categories: Dict[str, Dict[str, Any]] = full_config["channel_map"]
 
         site_config_tmp: Dict[str, Any] = full_config.get("site_config", {})
-        self._init_site_classes(site_config_tmp)
+        self._video_vod_config = SiteVideoConfig(site_config_tmp)
         del site_config_tmp
 
         self._init_channel_relations()
@@ -58,20 +105,8 @@ class ConfigManager:
         return self._redis_config
 
     @property
-    def site_video_cover(self):
-        return self._default_cover
-
-    @property
-    def site_class(self):
-        return self._site_class
-
-    @property
-    def site_collections(self):
-        return self._site_collects
-
-    @property
-    def site_videos(self):
-        return self._site_videos
+    def video_vod_config(self):
+        return self._video_vod_config
 
     def _load_config(self, config_path) -> Dict[str, Any]:
         """加载完整配置（仅临时使用）"""
@@ -102,15 +137,6 @@ class ConfigManager:
             raise RuntimeError(f"failed to parse yaml：{str(e)}")
         except Exception as e:
             raise RuntimeError(f"load yaml exception：{str(e)}")
-
-    def _init_site_classes(self, config_data: Dict[str, Any]):
-        class_config = config_data.get("class", {})
-        for idx, (cat_name, data) in enumerate(class_config.items(), start=1):
-            self._site_class.append({"type_id": str(idx), "type_name": cat_name})
-            self._site_videos[cat_name] = data.get("episodes", [])
-
-        self._site_collects = config_data.get("collect_sites", [])
-        self._default_cover = config_data.get("default_cover", "")
 
     def _init_channel_relations(self):
         """初始化频道名称与分类的映射关系"""
@@ -232,12 +258,6 @@ class ConfigManager:
     def get_channel_id(self, channel_id: str) -> str:
         # channel_id = channel_id.replace("频道", "").replace("广播电视台", "")
         return self._channel_id_map.get(channel_id, channel_id)
-
-    def get_site_cate_name(self, tid: str | str) -> str | None:
-        for c in self._site_class:
-            if c["type_id"] == tid:
-                return c["type_name"]
-        return None
 
 
 config_manager = ConfigManager()

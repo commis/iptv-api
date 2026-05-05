@@ -70,6 +70,12 @@ class UpdateLiveRequest(BaseModel):
     is_clear: Optional[bool] = Field(True, description="是否清空已有频道数据")
 
 
+class UpdateVodRequest(BaseModel):
+    """更新点播源请求"""
+
+    is_full: bool = Field(False, description="True=强制更新所有缓存")
+
+
 class ChannelQuery(BaseModel):
     speed: int = Field(..., description="频道速率")
 

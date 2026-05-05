@@ -26,9 +26,9 @@ def update_migu_sources(request: UpdateLiveRequest, background_tasks: Background
     自动更新直播源数据
     """
     try:
+        task_manager.clear()
         if request.is_clear:
             channel_manager.clear()
-            task_manager.clear()
 
         if request.epg.domain:
             parser_manager.set_domain(request.epg.domain)
