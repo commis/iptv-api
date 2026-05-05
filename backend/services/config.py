@@ -58,6 +58,10 @@ class ConfigManager:
         return self._redis_config
 
     @property
+    def site_video_cover(self):
+        return self._default_cover
+
+    @property
     def site_class(self):
         return self._site_class
 
@@ -106,6 +110,7 @@ class ConfigManager:
             self._site_videos[cat_name] = data.get("episodes", [])
 
         self._site_collects = config_data.get("collect_sites", [])
+        self._default_cover = config_data.get("default_cover", "")
 
     def _init_channel_relations(self):
         """初始化频道名称与分类的映射关系"""

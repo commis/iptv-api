@@ -36,6 +36,7 @@ def get_video_from_redis(cat_name: str, video_name: str) -> Dict | None:
     return {
         "vod_id": f"{cat_name}/{video_name}",
         "vod_name": video_name,
+        "vod_pic": config_manager.site_video_cover,
         "type_name": cat_name,
         "vod_remarks": "未采集",
     }
