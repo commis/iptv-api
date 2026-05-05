@@ -60,38 +60,48 @@ class VideoCollector:
 
     async def collect_all_videos(self, task_status, is_full: bool = False):
         total_count = task_status["total"]
-        success_counter = Counter()
-        processed_counter = Counter()
-        skipped = 0
+        success = Counter()
+        failed = Counter()
+        processed = Counter()
+        skipped = Counter()
 
         async with httpx.AsyncClient(timeout=15, verify=False) as client:
             site_config = config_manager.video_vod_config
             for cat_name, video_names in site_config.site_videos.items():
                 for video_name in video_names:
-                    current_processed = processed_counter.increment()
+                    current_processed = processed.increment()
                     redis_key = f"tv-vod:{cat_name}:{video_name}"
                     if not is_full and self.redis_get(redis_key):
-                        skipped += 1
+                        skipped.increment()
                         continue
 
                     video_data = await self._collect_detail(client, video_name)
                     if video_data:
                         self.redis_set(redis_key, video_data)
-                        success_counter.increment()
+                        success.increment()
                         logger.debug(f"采集完成：{cat_name}/{video_name}")
                     else:
+                        failed.increment()
                         logger.warning(f"采集失败：{cat_name}/{video_name}")
 
                     task_status.update({
                         "processed": current_processed,
                         "progress": round(current_processed / total_count * 100, 2),
-                        "success": success_counter.get_value(),
+                        "success": success.get_value(),
                         "updated_at": int(time.time()),
                     })
 
+        # 存在跳过处理，最终刷新一次状态
+        task_status.update({
+            "processed": current_processed,
+            "progress": round(current_processed / total_count * 100, 2),
+            "success": success.get_value(),
+            "updated_at": int(time.time()),
+        })
         return {
-            "success": success_counter.get_value(),
-            "skipped": skipped
+            "fail": failed.get_value(),
+            "success": success.get_value(),
+            "skipped": skipped.get_value()
         }
 
     async def _collect_detail(self, client: httpx.AsyncClient, video_name: str):
