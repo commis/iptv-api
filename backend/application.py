@@ -1,0 +1,53 @@
+import os
+
+import uvicorn
+from fastapi import FastAPI
+
+from core.logger_factory import LoggerFactory
+from utils.scanner import RouteScanner
+
+logger = LoggerFactory.get_logger(__name__)
+
+api_prefix = os.getenv("API_PREFIX", "")
+
+
+class CreateApplication:
+    def __init__(self):
+        self._app = FastAPI(
+            title="IPTV API文档",
+            description="自动生成的API文档",
+            version="1.0.0",
+            root_path=api_prefix,
+            debug=True)
+
+        # 初始化路由扫描器
+        scanner = RouteScanner(self._app, os.path.dirname(os.path.abspath(__file__)))
+
+        # 扫描当前目录下的所有routes.py文件
+        scanner.register_routers()
+
+    def get_app(self):
+        return self._app
+
+    def start_server(self):
+        import __main__ as main
+        module_name = os.path.basename(main.__file__).replace('.py', '')
+        try:
+            uvicorn.run(
+                f"{module_name}:app",
+                host="192.168.3.144",
+                port=3001,
+                workers=1
+            )
+        except (KeyboardInterrupt, SystemExit):
+            logger.info(f"Server stopped by user.")
+        except Exception as e:
+            logger.info(f"Unexpected error: {e}")
+
+
+logger.info(f"project root: {os.getcwd()}")
+application_creator = CreateApplication()
+app = application_creator.get_app()
+
+if __name__ == '__main__':
+    application_creator.start_server()

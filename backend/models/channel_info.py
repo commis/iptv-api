@@ -1,0 +1,233 @@
+import threading
+from typing import List, Dict, Set
+
+from services import config_manager
+from utils.sort_util import StringSorter
+
+
+class ChannelUrl:
+    """
+    频道地址：数据流地址和速度信息
+    """
+    _instances = {}
+    _global_counter = 0
+    _counter_lock = threading.Lock()
+
+    def __new__(cls, url: str, speed=0, resolution=0):
+        if url in cls._instances:
+            instance = cls._instances[url]
+            if speed != 0:
+                instance.set_speed(speed)
+            if resolution != 0:
+                instance.set_resolution(resolution)
+            return instance
+
+        instance = super().__new__(cls)
+        cls._instances[url] = instance
+        return instance
+
+    def __init__(self, url: str, speed=0, resolution=0):
+        if not hasattr(self, "_order"):
+            self.url = url
+            self.speed = speed
+            self.resolution = resolution
+            with self._counter_lock:
+                ChannelUrl._global_counter += 1
+                self._order = ChannelUrl._global_counter
+
+    def __eq__(self, other):
+        return isinstance(other, ChannelUrl) and self.url == other.url
+
+    def __hash__(self):
+        return hash(self.url)
+
+    @property
+    def order(self):
+        return self._order
+
+    def set_speed(self, speed):
+        self.speed = speed
+
+    def set_resolution(self, resolution):
+        self.resolution = resolution
+
+    def valid_resolution(self, resolution):
+        return self.resolution >= resolution
+
+
+class ChannelInfo:
+    """
+    频道信息，包括频道数据流地址和速度信息
+    """
+
+    def __init__(self, id: str = "", name: str = None):
+        self.id = id
+        self.name = name
+        self.logo = None
+        self.title = "央视频道"
+        self.urls: Set[ChannelUrl] = set()
+        self._lock = threading.RLock()
+
+    def set_logo(self, logo: str):
+        if logo and not self.logo:
+            self.logo = logo
+
+    def set_name(self, name: str):
+        self.name = name or f"{self.id}"
+
+    def get_urls(self):
+        with self._lock:
+            return self.urls
+
+    def valid(self):
+        with self._lock:
+            return len(self.urls) >= 1
+
+    def add_url(self, url: ChannelUrl):
+        with self._lock:
+            self.urls.add(url)
+
+    def remove_url(self, url_info: ChannelUrl):
+        with self._lock:
+            self.urls.discard(url_info)
+
+    def get_txt(self):
+        return "\n".join(
+            f"{self.name},{url.url}"
+            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
+        )
+
+    def get_m3u(self, do_channel_logo: int, title, show_logo):
+        if not title:
+            title = self.title
+
+        tvg_id = f'tvg-id="{self.id}" ' if self.id else ""
+        tvg_name = f'tvg-name="{self.name}" ' if self.logo and not self.id else ""
+
+        # do_channel_logo（0：关闭，1：显示）
+        match do_channel_logo:
+            case 0:
+                tvg_logo = ''
+            case _:
+                tvg_logo = f'tvg-logo="{self.logo}" ' if (self.logo and show_logo) else ''
+
+        # 特殊场景下输出
+        if tvg_id == "" and tvg_name == "" and tvg_logo == "":
+            tvg_id = f'tvg-id="{self.name}" '
+
+        return "\n".join(
+            f'#EXTINF:-1 {tvg_id}{tvg_name}{tvg_logo}group-title="{title}",'
+            f"{self.name}\n{url.url}"
+            for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
+        )
+
+    def get_all(self, title="") -> str:
+        if not title:
+            title = self.title
+        sorted_urls = sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
+        separator = [
+            "",
+            "===============================================================",
+            "",
+        ]
+        tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
+        tvg_logo = f'tvg-logo="{self.logo}" ' if self.logo else ""
+        return (
+            "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
+            + "\n"
+            + "\n".join(separator)
+            + "\n"
+            + "\n".join(
+                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",{self.name}\n{url.url}"'
+                for url in sorted_urls)
+        )
+
+
+class ChannelList:
+    """
+    频道列表，包括多个频道信息
+    """
+
+    def __init__(self):
+        self._channels: Dict[str, ChannelInfo] = {}
+        self._lock = threading.RLock()
+
+    def count(self) -> int:
+        with self._lock:
+            return sum(len(info.urls) for info in self._channels.values())
+
+    def add_channel(self, channel_name, channel_url: str, id="", logo=None):
+        with self._lock:
+            if channel_name not in self._channels:
+                self._channels[channel_name] = ChannelInfo(id, channel_name)
+            channel_info = self._channels[channel_name]
+            channel_info.set_logo(logo)
+            channel_info.add_url(ChannelUrl(channel_url))
+
+    def add_channel_info(self, channel_info: ChannelInfo):
+        with self._lock:
+            self._channels[channel_info.name] = channel_info
+
+    def get_channel_names(self):
+        with self._lock:
+            return self._channels.keys()
+
+    def get_channle_ids(self):
+        with self._lock:
+            return [channel.id for channel in self._channels.values()]
+
+    def get_channel(self, channel_name) -> ChannelInfo:
+        with self._lock:
+            if channel_name in self._channels:
+                return self._channels.get(channel_name)
+        return ChannelInfo()
+
+    def _sorted_channels(self) -> List[ChannelInfo]:
+        """
+        获取按 ChannelInfo.name 排序后的频道列表
+        使用 mixed_sort_key 函数进行智能排序
+        """
+        with self._lock:
+            return sorted(
+                self._channels.values(),
+                key=lambda channel: StringSorter.get_sort_key(channel.name),
+            )
+
+    def get_m3u(self, do_channel_logo: int, title, show_logo):
+        with self._lock:
+            return "\n".join(
+                filter(
+                    None,
+                    (
+                        channel_info.get_m3u(do_channel_logo, title, show_logo)
+                        for channel_info in self._sorted_channels()
+                    ),
+                )
+            )
+
+    def get_txt(self):
+        with self._lock:
+            return "\n".join(
+                filter(
+                    None,
+                    (
+                        channel_info.get_txt()
+                        for channel_info in self._sorted_channels()
+                    ),
+                )
+            )
+
+    def write_to_txt_file(self, file_handle):
+        with self._lock:
+            for channel_info in self._sorted_channels():
+                txt_line = channel_info.get_txt()
+                if txt_line:
+                    file_handle.write(f"{txt_line}\n")
+
+    def write_to_m3u_file(self, group_name, domain, show_logo, file_handle):
+        with self._lock:
+            do_channel_logo = config_manager.do_channel_logo(group_name)
+            for channel_info in self._sorted_channels():
+                m3u_line = channel_info.get_m3u(do_channel_logo, group_name, domain, show_logo)
+                if m3u_line:
+                    file_handle.write(f"{m3u_line}\n")

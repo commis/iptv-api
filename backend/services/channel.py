@@ -1,0 +1,199 @@
+import re
+import threading
+from typing import Dict
+
+from core.singleton import singleton
+from models.channel_info import ChannelList, ChannelInfo
+from services import config_manager
+from utils.sort_util import StringSorter
+
+# 预编译正则，提升性能（推荐写法）
+PIC_SUFFIX_PATTERN = re.compile(r"\.(png|jpg)$", re.IGNORECASE)
+
+
+class EpgBaseModel:
+
+    def __init__(self, url: str, source: str, show_logo: bool, rename_cid: bool):
+        self._url = url
+        self._source = source
+        self._show_logo = show_logo
+        self._rename_cid = rename_cid
+
+    @property
+    def url(self):
+        return self._url
+
+    @property
+    def source(self):
+        return self._source
+
+    @property
+    def show_logo(self):
+        return self._show_logo
+
+    @property
+    def rename_cid(self):
+        return self._rename_cid
+
+
+class ChannelBaseModel:
+    """
+    频道基类，提供频道管理的基本功能
+    """
+
+    def __init__(self):
+        self._epg = None
+        self._channelGroups: Dict[str, ChannelList] = {}
+        self._lock = threading.RLock()
+
+    @property
+    def epg(self):
+        return self._epg
+
+    def set_epg(self,
+                url: str = "",
+                source: str = "",
+                show_logo: bool = False,
+                rename_cid: bool = False):
+        self._epg = EpgBaseModel(url, source, show_logo, rename_cid)
+
+    def clear(self):
+        self._epg = None
+        self._channelGroups.clear()
+
+    def sort(self):
+        fix_names = config_manager.get_groups()
+        index_map = {name: i for i, name in enumerate(fix_names)}
+        default_index = len(fix_names)
+
+        with self._lock:
+            self._channelGroups = dict(
+                sorted(
+                    self._channelGroups.items(),
+                    key=lambda item: index_map.get(item[0], default_index),
+                )
+            )
+
+    def sort_by_cate_name(self):
+        with self._lock:
+            sorted_keys = StringSorter.mixed_sort(list(self._channelGroups.keys()))
+            self._channelGroups = {key: self._channelGroups[key] for key in sorted_keys}
+
+    def total_count(self):
+        with self._lock:
+            # 对于忽略处理的分类，不计算总数
+            return sum(
+                channel_list.count()
+                for group_name, channel_list in self._channelGroups.items()
+                if not config_manager.is_ignore(group_name)
+            )
+
+    def add_channel(self, use_ignore: bool, name: str, channel_name, channel_url, id: str = "", logo=None):
+        # 添加频道信息，自动归类分类信息，自动过滤排除频道
+        with self._lock:
+            category_info = config_manager.get_category_object(channel_name, name)
+            if category_info:
+                if self._epg and self._epg.rename_cid:
+                    id = config_manager.get_channel_id(id)
+
+                category_name = category_info.get("name", name)
+                if category_name not in self._channelGroups:
+                    self._channelGroups[category_name] = ChannelList()
+                channel_list = self._channelGroups[category_name]
+
+                if not use_ignore:
+                    channel_list.add_channel(channel_name, channel_url, id, logo)
+                elif not config_manager.is_exclude(category_info, channel_name):
+                    channel_list.add_channel(channel_name, channel_url, id, logo)
+
+    def add_channel_data(self, name: str, channel_name, channel_url, id, logo):
+        # 添加频道信息，自动归类分类信息，自动过滤排除频道
+        with self._lock:
+            if name not in self._channelGroups:
+                self._channelGroups[name] = ChannelList()
+            channel_list = self._channelGroups[name]
+            channel_list.add_channel(channel_name, channel_url, id, logo)
+
+    def add_channel_info(self, name, channel_info: ChannelInfo):
+        if not name:
+            name = channel_info.title
+        with self._lock:
+            if name not in self._channelGroups:
+                self._channelGroups[name] = ChannelList()
+            channel_list = self._channelGroups[name]
+            channel_list.add_channel_info(channel_info)
+
+    def get_groups(self):
+        with self._lock:
+            return self._channelGroups.keys()
+
+    def get_channel_list(self, group_name) -> ChannelList:
+        with self._lock:
+            if group_name in self._channelGroups:
+                return self._channelGroups[group_name]
+        return ChannelList()
+
+    def channel_ids(self):
+        with self._lock:
+            result = []
+            for _, channel_list in self._channelGroups.items():
+                result.append(channel_list.get_channle_ids())
+            return sorted(result)
+
+    def _get_extm3u_header(self) -> str:
+        base_header = "#EXTM3U"
+        if not self._epg:
+            return base_header
+
+        extra_params = (
+            f'x-tvg-url="{self._epg.url}" '
+            f'catchup="append" '
+            f'catchup-source="{self._epg.source}"'
+        )
+
+        return f"{base_header} {extra_params}"
+
+    def to_m3u_string(self) -> str:
+        with self._lock:
+            result = [self._get_extm3u_header()]
+            for group_name, channel_list in self._channelGroups.items():
+                do_channel_logo = config_manager.do_channel_logo(group_name)
+                result.append(channel_list.get_m3u(do_channel_logo, group_name, self._epg.show_logo))
+            return "\n".join(result).strip()
+
+    def to_txt_string(self) -> str:
+        with self._lock:
+            result = []
+            for group_name, channel_list in self._channelGroups.items():
+                result.append(f"{group_name},#genre#")
+                result.append(channel_list.get_txt())
+                result.append("")
+            return "\n".join(result).strip()
+
+    def write_to_txt_file(self, file_handle):
+        with self._lock:
+            for group_name, channel_list in self._channelGroups.items():
+                file_handle.write(f"{group_name},#genre#\n")
+                channel_list.write_to_txt_file(file_handle)
+                file_handle.write("\n")
+
+    def write_to_m3u_file(self, file_handle):
+        with self._lock:
+            file_handle.write(f"{self._get_extm3u_header()}\n")
+            for group_name, channel_list in self._channelGroups.items():
+                do_channel_logo = config_manager.do_channel_logo(group_name)
+                file_handle.write(channel_list.get_m3u(do_channel_logo, group_name, self._epg.show_logo))
+                file_handle.write("\n")
+
+
+@singleton
+class ChannelManager(ChannelBaseModel):
+    """
+    频道管理器，管理所有频道信息
+    """
+
+    def __init__(self):
+        super().__init__()
+
+
+channel_manager = ChannelManager()
