@@ -293,8 +293,9 @@ class ConfigManager:
         return self._category_map.get(category_name, category_name)
 
     def get_channel(self, channel_name: str) -> str:
-        channel_name = channel_name.replace("频道", "").replace("广播电视台", "")
-        return self._channel_name_map.get(channel_name, channel_name)
+        pattern = re.compile(r"(频道|广播电视(总)?台)")
+        clean_name = pattern.sub("", channel_name).strip()
+        return self._channel_name_map.get(clean_name, clean_name)
 
     def get_channel_id(self, channel_id: str) -> str:
         # channel_id = channel_id.replace("频道", "").replace("广播电视台", "")
