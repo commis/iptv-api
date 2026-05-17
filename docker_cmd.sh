@@ -22,6 +22,7 @@ docker_build() {
   image_tag=$1
   docker build -t commi/tvbox:${image_tag} .
   docker tag commi/tvbox:${image_tag} commi/tvbox:latest
+  echo "${image_tag}" > build_version.txt
 }
 
 docker_push() {
