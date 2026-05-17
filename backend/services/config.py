@@ -61,7 +61,7 @@ class SiteVideoConfig:
 
     @property
     def video_total(self):
-        return self._video_total
+        return self._video_total if self._video_total > 0 else 1
 
     @property
     def site_class(self):

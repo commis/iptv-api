@@ -2,7 +2,10 @@ import importlib
 from pathlib import Path
 from typing import Dict, Type
 
+from core.logger_factory import LoggerFactory
 from services.spider.base import BaseSpider
+
+logger = LoggerFactory.get_logger(__name__)
 
 SPIDER_DIR = Path(__file__).parent
 SPIDER_REGISTRY: Dict[str, Type["BaseSpider"]] = {}
@@ -35,9 +38,9 @@ class SpiderFactory:
             try:
                 # 动态导入模块，触发装饰器注册
                 importlib.import_module(module_name)
-                print(f"[SpiderAutoLoad] 已加载爬虫模块: {module_name}")
+                logger.info(f"[SpiderAutoLoad] 已加载爬虫模块: {module_name}")
             except Exception as e:
-                print(f"[SpiderAutoLoad] 加载模块失败 {module_name}: {e}")
+                logger.error(f"[SpiderAutoLoad] 加载模块失败 {module_name}: {e}")
 
     @staticmethod
     def get_spider(sp: str) -> BaseSpider | None:

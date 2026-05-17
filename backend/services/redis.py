@@ -69,5 +69,15 @@ class RedisClient:
         except Exception as e:
             logger.warning(f"redis set failed, key={key}, error={e}")
 
+    def prefix_keys(self, prefix: str):
+        self._init_client()
+        if not self._client:
+            return
+
+        try:
+            return self._client.keys(f"{prefix}*")
+        except Exception as e:
+            logger.warning(f"redis keys failed, prefis={prefix}, error={e}")
+            return None
 
 redis_client = RedisClient()

@@ -60,7 +60,9 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
         )
 
         async def run_task():
-            await spider.collect(task_id, request.is_full)
+            task_info = task_manager.get_task(task_id)
+            result = await spider.collect(task_info, request.is_full)
+            task_info.update({"status": "completed", "result": result})
 
         background_tasks.add_task(run_task)
         return TaskResponse(data={"task_id": task_id})

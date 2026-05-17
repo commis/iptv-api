@@ -1,6 +1,7 @@
 import abc
 import json
 from typing import Dict, Optional, List
+from urllib.parse import unquote
 
 from core.logger_factory import LoggerFactory
 from services import config_manager
@@ -28,29 +29,51 @@ class BaseSpider(abc.ABC):
     # ------------------------------
     # 必须实现的抽象方法
     # ------------------------------
-    @abc.abstractmethod
+    # @abc.abstractmethod
     def get_list_data(self, t: str, pg: int) -> Dict:
         """获取列表数据（ac=detail & t=分类ID 时调用）"""
-        pass
+        cat_name = self.config.get_site_cate_name(t)
+        cat_data_list = self.redis_dir_data(cat_name)
+        data = []
+        for key, value in cat_data_list.items():
+            filted_data = self.filter_base_fields(value)
+            video_data = {"vod_id": f"{cat_name}/{key}", **filted_data}
+            data.append(video_data)
+        return self.paginate_list(data, pg)
 
-    @abc.abstractmethod
+    # @abc.abstractmethod
     def get_detail_data(self, ids: str) -> Dict:
         """获取详情数据（ac=detail & ids=cat/name 时调用）"""
-        pass
+        try:
+            cat_name, video_name = unquote(ids).split("/", 1)
+            cache = self.get_video_detail_from_redis(cat_name, video_name)
+            return {"list": [cache] if cache else []}
+        except ValueError:
+            logger.error(f"ids格式错误: {ids}，正确格式为 分类/文件名")
+            return {"list": []}
 
-    @abc.abstractmethod
+    # @abc.abstractmethod
     def search_data(self, keyword: str, pg: int) -> Dict:
         """搜索数据（wd=关键词 时调用）"""
-        pass
+        res = [
+            self.get_video_base_from_redis(cat, name)
+            for cat, videos in self.config.site_videos.items()
+            for name in videos
+            if keyword in name
+        ]
+        return self.paginate_list(res, pg)
 
     @abc.abstractmethod
-    async def collect(self, task_id: str, is_full: bool = False) -> Dict:
+    async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         """采集数据（后台任务调用）"""
         pass
 
     # ------------------------------
     # 通用工具方法（所有爬虫复用）
     # ------------------------------
+    def make_redis_key(self, *parts) -> str:
+        return f"tv-vod:{self._sp}:{':'.join(parts)}"
+
     def redis_set(self, key: str, data: dict, ex: int = 90 * 86400):
         redis_client.set_ex(key, json.dumps(data, ensure_ascii=False), ex)
 
@@ -58,8 +81,22 @@ class BaseSpider(abc.ABC):
         val = redis_client.get(key)
         return json.loads(val) if val else None
 
-    def make_redis_key(self, *parts) -> str:
-        return f"tv-vod:{self._sp}:{':'.join(parts)}"
+    def redis_dir_data(self, prefix: str) -> Dict:
+        """
+        获取 Redis 指定目录下所有 key 对应的 value
+        :return: {key: value} 字典
+        """
+        pattern = f"tv-vod:{self._sp}:{prefix}*"
+        keys = redis_client.prefix_keys(pattern)
+        result = {}
+
+        for key in keys:
+            val = self.redis_get(key)
+            if val:
+                key_str = key.replace(pattern.replace("*", ":"), "")
+                result[key_str] = val
+
+        return result
 
     # ------------------------------
     # 视频采集或查询处理的通用方法（所有爬虫复用）
