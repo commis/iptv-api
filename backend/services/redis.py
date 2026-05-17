@@ -36,6 +36,12 @@ class RedisClient:
             logger.error(f"init redis client failed: {e}")
             self._client = None
 
+    def exists(self, key: str) -> bool:
+        self._init_client()
+        if self._client is None:
+            return False
+        return self._client.exists(key) > 0
+
     def get(self, key: str) -> Optional[str]:
         self._init_client()
         if not self._client:
@@ -79,5 +85,6 @@ class RedisClient:
         except Exception as e:
             logger.warning(f"redis keys failed, prefis={prefix}, error={e}")
             return None
+
 
 redis_client = RedisClient()

@@ -39,6 +39,8 @@ class YoutubSpider(BaseSpider):
                         video_name = v.get("vod_key")
                         video_data = self.filter_detail_fields(v)
                         redis_key = self.make_redis_key(cat_name, video_name)
+                        if not is_full and self.redis_exists(redis_key):
+                            continue
                         self.redis_set(redis_key, video_data, ex=10 * 86400)
 
                     success += 1

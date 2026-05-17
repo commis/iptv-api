@@ -74,6 +74,9 @@ class BaseSpider(abc.ABC):
     def make_redis_key(self, *parts) -> str:
         return f"tv-vod:{self._sp}:{':'.join(parts)}"
 
+    def redis_exists(self, key: str):
+        return redis_client.exists(key)
+
     def redis_set(self, key: str, data: dict, ex: int = 90 * 86400):
         redis_client.set_ex(key, json.dumps(data, ensure_ascii=False), ex)
 
