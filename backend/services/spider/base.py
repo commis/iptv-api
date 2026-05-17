@@ -1,0 +1,141 @@
+import abc
+import json
+from typing import Dict, Optional, List
+
+from core.logger_factory import LoggerFactory
+from services import config_manager
+from services.redis import redis_client
+
+logger = LoggerFactory.get_logger(__name__)
+
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*"
+}
+
+
+class BaseSpider(abc.ABC):
+    """抽象爬虫基类：所有爬虫必须实现以下方法"""
+
+    def __init__(self, sp: str):
+        self._sp = sp
+        self._config = config_manager.get_vod_config(sp)
+
+    @property
+    def config(self):
+        return self._config
+
+    # ------------------------------
+    # 必须实现的抽象方法
+    # ------------------------------
+    @abc.abstractmethod
+    def get_list_data(self, t: str, pg: int) -> Dict:
+        """获取列表数据（ac=detail & t=分类ID 时调用）"""
+        pass
+
+    @abc.abstractmethod
+    def get_detail_data(self, ids: str) -> Dict:
+        """获取详情数据（ac=detail & ids=cat/name 时调用）"""
+        pass
+
+    @abc.abstractmethod
+    def search_data(self, keyword: str, pg: int) -> Dict:
+        """搜索数据（wd=关键词 时调用）"""
+        pass
+
+    @abc.abstractmethod
+    async def collect(self, task_id: str, is_full: bool = False) -> Dict:
+        """采集数据（后台任务调用）"""
+        pass
+
+    # ------------------------------
+    # 通用工具方法（所有爬虫复用）
+    # ------------------------------
+    def redis_set(self, key: str, data: dict, ex: int = 90 * 86400):
+        redis_client.set_ex(key, json.dumps(data, ensure_ascii=False), ex)
+
+    def redis_get(self, key: str) -> Optional[dict]:
+        val = redis_client.get(key)
+        return json.loads(val) if val else None
+
+    def make_redis_key(self, *parts) -> str:
+        return f"tv-vod:{self._sp}:{':'.join(parts)}"
+
+    # ------------------------------
+    # 视频采集或查询处理的通用方法（所有爬虫复用）
+    # ------------------------------
+    def filter_base_fields(self, raw_item: Dict) -> Dict:
+        return {
+            "vod_name": raw_item.get("vod_name", ""),
+            "vod_pic": raw_item.get("vod_pic", ""),
+            "type_name": raw_item.get("type_name", ""),
+            "vod_remarks": raw_item.get("vod_remarks", "")
+        }
+
+    def filter_base_list(self, raw_list: List[Dict]) -> List[Dict]:
+        return [self.filter_base_fields(item) for item in raw_list]
+
+    def filter_detail_fields(self, raw_item: Dict) -> Dict:
+        return {
+            "vod_name": raw_item.get("vod_name", ""),
+            "vod_pic": raw_item.get("vod_pic", ""),
+            "type_name": raw_item.get("type_name", ""),
+            "vod_remarks": raw_item.get("vod_remarks", ""),
+            "vod_year": raw_item.get("vod_year", ""),
+            "vod_area": raw_item.get("vod_area", ""),
+            "vod_lang": raw_item.get("vod_lang", ""),
+            "vod_director": raw_item.get("vod_director", ""),
+            "vod_actor": raw_item.get("vod_actor", ""),
+            "vod_score": raw_item.get("vod_score", ""),
+            "vod_time": raw_item.get("vod_time", ""),
+            "vod_content": raw_item.get("vod_content", ""),
+            "vod_play_from": raw_item.get("vod_play_from", ""),
+            "vod_play_url": raw_item.get("vod_play_url", "")
+        }
+
+    def filter_detail_list(self, raw_list: List[Dict]) -> List[Dict]:
+        return [self.filter_detail_fields(item) for item in raw_list]
+
+    def paginate_list(self, data_list: List[Dict], page: int, page_size: int = 20) -> Dict:
+        total = len(data_list)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_data = data_list[start:end]
+        return {
+            "list": page_data,
+            "total": total,
+            "page": page
+        }
+
+    def get_video_detail_from_redis(self, cat_name: str, video_name: str) -> Dict | None:
+        define_id = f"{cat_name}/{video_name}"
+        redis_key = self.make_redis_key(cat_name, video_name)
+        redis_data = self.redis_get(redis_key)
+        if redis_data:
+            video_data = {"vod_id": define_id, **redis_data}
+            return video_data
+
+        return {
+            "vod_id": f"{define_id}",
+            "vod_name": video_name,
+            "vod_pic": self.config.site_video_cover,
+            "type_name": cat_name,
+            "vod_remarks": "未采集",
+        }
+
+    def get_video_base_from_redis(self, cat_name: str, video_name: str) -> Dict | None:
+        define_id = f"{cat_name}/{video_name}"
+        redis_key = self.make_redis_key(cat_name, video_name)
+        redis_data = self.redis_get(redis_key)
+        if redis_data:
+            field_result = self.filter_base_fields(redis_data)
+            video_data = {"vod_id": define_id, **field_result}
+            return video_data
+
+        return {
+            "vod_id": f"{define_id}",
+            "vod_name": video_name,
+            "vod_pic": self.config.site_video_cover,
+            "type_name": cat_name,
+            "vod_remarks": "未采集",
+        }

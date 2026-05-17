@@ -36,15 +36,13 @@ class SiteVideoConfig:
     点播原的相关配置信息
     """
 
-    _site_collects: List[CollectInfo] = []
-    _site_class: List[Dict] = []
-    _site_videos: Dict[str, List[str]] = {}
-
-    _default_cover = ""
-    _video_total = 0
-
     def __init__(self, config_data: Dict[str, Any]):
         self._default_cover = config_data.get("default_cover", "")
+
+        self._site_collects: List[CollectInfo] = []
+        self._site_class: List[Dict] = []
+        self._site_videos: Dict[str, List[str]] = {}
+        self._video_total = 0
 
         collect_list = config_data.get("collect_sites", [])
         for key in collect_list:
