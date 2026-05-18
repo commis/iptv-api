@@ -25,9 +25,9 @@ class LoggerFactory:
 
     @staticmethod
     def _get_file_handler(
-        level: int = logging.INFO,
-        backup_days: int = 30,
-        log_format: str = DEFAULT_FORMAT
+            level: int = logging.INFO,
+            backup_days: int = 30,
+            log_format: str = DEFAULT_FORMAT
     ) -> logging.Handler:
         """创建按日期分割的文件处理器"""
         LoggerFactory._create_log_dir()
@@ -47,8 +47,8 @@ class LoggerFactory:
 
     @staticmethod
     def _get_console_handler(
-        level: int = logging.INFO,
-        log_format: str = SIMPLE_FORMAT
+            level: int = logging.INFO,
+            log_format: str = SIMPLE_FORMAT
     ) -> logging.Handler:
         """创建控制台处理器"""
         console_handler = logging.StreamHandler()
@@ -59,9 +59,9 @@ class LoggerFactory:
 
     @staticmethod
     def get_logger(
-        name: str,
-        level: Union[str, int] = None,
-        with_console: bool = True
+            name: str,
+            level: Union[str, int] = None,
+            with_console: bool = True
     ) -> logging.Logger:
         """获取配置好的日志器
 
@@ -72,7 +72,7 @@ class LoggerFactory:
         """
         if level is None:
             from services import config_manager
-            level = config_manager.log_level
+            level = config_manager.service_params.log_level
 
         # 将字符串级别转换为int
         if isinstance(level, str):

@@ -5,8 +5,10 @@ from typing import Dict, List
 
 import feedparser
 import httpx
+import yt_dlp
 
 from core.logger_factory import LoggerFactory
+from services import config_manager
 from services.spider.base import BaseSpider
 from services.spider.factory import register_spider
 
@@ -90,6 +92,7 @@ class YoutubSpider(BaseSpider):
                 published_time = datetime(*entry.published_parsed[:6])
                 if published_time < ONE_WEEK_AGO:
                     continue
+
                 videos.append({
                     "vod_key": entry.yt_videoid,
                     "vod_name": entry.title,
@@ -97,17 +100,43 @@ class YoutubSpider(BaseSpider):
                     "type_name": channel_user,
                     "vod_remarks": f"{published_time.strftime('%Y-%m-%d %H:%M')}",
                     "vod_year": f"{published_time.strftime('%Y')}",
-                    "vod_area": "",
-                    "vod_lang": "",
+                    "vod_area": "未知",
+                    "vod_lang": "国语",
                     "vod_director": entry.author,
                     "vod_actor": entry.author,
                     "vod_score": "0.0",
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": entry.get("summary", "")[:200],
                     "vod_play_from": "YouTube",
-                    "vod_play_url": entry.link
+                    "vod_play_url": f"{config_manager.service_params.url_parse}{entry.link}"
                 })
             return videos
         except Exception as e:
             logger.error(f"获取频道 {channel_id} 视频失败: {str(e)}")
             return []
+
+    @staticmethod
+    def resolve(url: str) -> str:
+        serv_params = config_manager.service_params
+        ydl_opts = {
+            "quiet": True,
+            "skip_download": True,
+            "format": "best",
+            "proxy": serv_params.vpn_proxy,
+            "cookiefile": serv_params.cookie_file,
+        }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            formats = info.get("formats", [])
+            merged = [
+                f for f in formats
+                if f.get("url") and f.get("vcodec") not in (None, "none") and f.get("acodec") not in (None, "none")
+            ]
+
+            if not merged:
+                raise ValueError("未找到可直接播放的合并流")
+
+            merged.sort(key=lambda f: f.get("height") or 0, reverse=True)
+            best = merged[0]
+            return best["url"]

@@ -38,9 +38,9 @@ class SpiderFactory:
             try:
                 # 动态导入模块，触发装饰器注册
                 importlib.import_module(module_name)
-                logger.info(f"[SpiderAutoLoad] 已加载爬虫模块: {module_name}")
+                logger.info(f"successfully load service spider: {module_name}")
             except Exception as e:
-                logger.error(f"[SpiderAutoLoad] 加载模块失败 {module_name}: {e}")
+                logger.error(f"failed to load service spider {module_name}: {e}")
 
     @staticmethod
     def get_spider(sp: str) -> BaseSpider | None:

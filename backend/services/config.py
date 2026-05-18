@@ -14,12 +14,10 @@ logger = LoggerFactory.get_logger(__name__, level=logging.INFO)
 
 
 class CollectInfo:
-    _url = ""
-    _pic: Dict[str, Any] = {}
 
     def __init__(self, collect_data: Dict[str, Any]):
-        self._url = collect_data["url"]
-        self._pic = collect_data.get("pic", {})
+        self._url: str = collect_data["url"]
+        self._pic: Dict[str, Any] = collect_data.get("pic", {})
 
     @property
     def url(self):
@@ -82,6 +80,31 @@ class SiteVideoConfig:
         return None
 
 
+class ServParams:
+
+    def __init__(self, config_data: Dict[str, Any]):
+        self._log_level = config_data.get("log_level", "info")
+        self._url_parse = config_data.get("url_parse", "")
+        self._vpn_proxy = config_data.get("vpn_proxy", "")
+        self._cookie_file = config_data.get("cookie_file", "")
+
+    @property
+    def log_level(self) -> str:
+        return self._log_level
+
+    @property
+    def url_parse(self) -> str:
+        return self._url_parse
+
+    @property
+    def vpn_proxy(self) -> str:
+        return self._vpn_proxy
+
+    @property
+    def cookie_file(self) -> str:
+        return self._cookie_file
+
+
 @singleton
 class ConfigManager:
     """
@@ -102,7 +125,7 @@ class ConfigManager:
             )
         )
         full_config = self._load_config(service_config_path)
-        self._log_level = full_config.get("service", {}).get("log_level", "info")
+        self._service_params = ServParams(full_config.get("service", {}))
         self._redis_config: Dict[str, Any] = full_config["redis_cache"]
         self._category_map: Dict[str, str] = full_config["category_map"]
         self._ignore_categories: Dict[str, str] = full_config["ignore_category"]
@@ -115,8 +138,8 @@ class ConfigManager:
         self._init_vod_configs()
 
     @property
-    def log_level(self) -> str:
-        return self._log_level
+    def service_params(self) -> ServParams:
+        return self._service_params
 
     @property
     def redis_config(self):
