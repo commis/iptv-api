@@ -1,7 +1,7 @@
 import re
 import time
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict, List, override
 
 import feedparser
 import httpx
@@ -22,6 +22,17 @@ class YoutubSpider(BaseSpider):
 
     def _get_base_url(self) -> str:
         return self.config.site_collections[0].url
+
+    @override
+    def get_list_data(self, t: str, pg: int) -> Dict:
+        cat_name = self.config.get_site_cate_name(t)
+        cat_data_list = self.redis_dir_data(cat_name)
+        data = []
+        for key, value in cat_data_list.items():
+            filted_data = self.filter_base_fields(value)
+            video_data = {"vod_id": f"{cat_name}/{key}", **filted_data}
+            data.append(video_data)
+        return self.paginate_list(data, pg)
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]

@@ -33,12 +33,8 @@ class BaseSpider(abc.ABC):
     def get_list_data(self, t: str, pg: int) -> Dict:
         """获取列表数据（ac=detail & t=分类ID 时调用）"""
         cat_name = self.config.get_site_cate_name(t)
-        cat_data_list = self.redis_dir_data(cat_name)
-        data = []
-        for key, value in cat_data_list.items():
-            filted_data = self.filter_base_fields(value)
-            video_data = {"vod_id": f"{cat_name}/{key}", **filted_data}
-            data.append(video_data)
+        videos = self.config.site_videos.get(cat_name, [])
+        data = [self.get_video_base_from_redis(cat_name, name) for name in videos]
         return self.paginate_list(data, pg)
 
     # @abc.abstractmethod
