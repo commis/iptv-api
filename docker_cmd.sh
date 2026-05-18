@@ -29,6 +29,7 @@ docker_push() {
   image_tag=$1
   docker push commi/tvbox:${image_tag}
   docker push commi/tvbox:latest
+  docker rmi -f commi/tvbox:${image_tag}
 }
 
 if [ -z "$2" ]; then
