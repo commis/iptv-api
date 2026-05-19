@@ -110,7 +110,9 @@ class BaseSpider(abc.ABC):
             "vod_name": raw_item.get("vod_name", ""),
             "vod_pic": raw_item.get("vod_pic", ""),
             "type_name": raw_item.get("type_name", ""),
-            "vod_remarks": raw_item.get("vod_remarks", "")
+            "vod_remarks": raw_item.get("vod_remarks", ""),
+            "vod_play_from": raw_item.get("vod_play_from", ""),
+            "vod_play_url": raw_item.get("vod_play_url", "")
         }
 
     def filter_base_list(self, raw_list: List[Dict]) -> List[Dict]:

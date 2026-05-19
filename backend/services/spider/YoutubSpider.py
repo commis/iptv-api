@@ -123,7 +123,7 @@ class YoutubSpider(BaseSpider):
                     "vod_score": "0.0",
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": entry.get("summary", "")[:200],
-                    "vod_play_from": "UP主频道",
+                    "vod_play_from": "ytplayer",
                     "vod_play_url": entry.yt_videoid
                 })
             return videos
