@@ -19,6 +19,12 @@ ONE_WEEK_AGO = datetime.now() - timedelta(days=15)
 
 @register_spider("v-youtub")
 class YoutubSpider(BaseSpider):
+    _header = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Referer": "https://www.youtube.com"
+    }
 
     def _get_base_url(self) -> str:
         return self.config.site_collections[0].url
@@ -109,7 +115,7 @@ class YoutubSpider(BaseSpider):
                     "vod_name": entry.title,
                     "vod_pic": f"https://i.ytimg.com/vi/{entry.yt_videoid}/hqdefault.jpg",
                     "type_name": channel_user,
-                    "vod_remarks": f"{published_time.strftime('%Y-%m-%d %H:%M')}",
+                    "vod_remarks": f"{published_time.strftime('%m-%d %H:%M')}",
                     "vod_year": f"{published_time.strftime('%Y')}",
                     "vod_area": "未知",
                     "vod_lang": "国语",
@@ -118,7 +124,7 @@ class YoutubSpider(BaseSpider):
                     "vod_score": "0.0",
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": entry.get("summary", "")[:200],
-                    "vod_play_from": "YouTube",
+                    "vod_play_from": "UP主频道",
                     "vod_play_url": f"{config_manager.service_params.url_parse}{entry.link}"
                 })
             return videos
