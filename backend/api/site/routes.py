@@ -1,9 +1,6 @@
-import asyncio
-from functools import partial
 from typing import Optional
 
 from fastapi import APIRouter, Query, BackgroundTasks
-from fastapi.responses import RedirectResponse
 from starlette import status
 
 from core.logger_factory import LoggerFactory
@@ -48,17 +45,21 @@ async def get_vod(
     return {"class": spider.config.site_class, "list": []}
 
 
-@router.get("/parse", summary="youtube地址转换")
-async def youtube_url_302(url: str = Query(..., description="原始播放地址")):
-    if not url:
-        handle_exception(f"url不能为空", status.HTTP_400_BAD_REQUEST)
+@router.get("/player", summary="视频播放")
+async def get_player(
+        flag: Optional[str] = Query(None, description="线路标识"),
+        pid: Optional[str] = Query(None, description="视频ID（例如 4fkoZ7z5ggM）"),
+        vipFlags: Optional[str] = Query(None, description="VIP")
+):
+    logger.debug(f"player: flag={flag}, pid={pid}, vipFlags={vipFlags}")
     try:
-        loop = asyncio.get_event_loop()
-        direct_url = await loop.run_in_executor(None, partial(YoutubSpider.resolve, url))
-        return RedirectResponse(url=direct_url, status_code=302)
+        if 'http' in pid:
+            return pid.split('$')[-1] if '$' in pid else pid
+        else:
+            return YoutubSpider.player_content(flag, pid, vipFlags)
     except Exception as e:
-        logger.error(f"youtube url_302 failed: {str(e)}", exc_info=True)
-        handle_exception(f"youtube url_302 failed: {str(e)}", status.HTTP_500_INTERNAL_SERVER_ERROR)
+        logger.error(f"player request failed: {str(e)}", exc_info=True)
+        handle_exception(f"player request  failed.")
 
 
 @router.post("/collect", summary="数据采集", response_model=TaskResponse)
@@ -85,4 +86,4 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
         return TaskResponse(data={"task_id": task_id})
     except Exception as e:
         logger.error(f"update vod video request failed: {str(e)}", exc_info=True)
-        handle_exception("update vod video request failed")
+        handle_exception(f"update vod video request failed.")

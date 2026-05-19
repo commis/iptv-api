@@ -5,7 +5,6 @@ from typing import Dict, List, override
 
 import feedparser
 import httpx
-import yt_dlp
 
 from core.logger_factory import LoggerFactory
 from services import config_manager
@@ -125,7 +124,7 @@ class YoutubSpider(BaseSpider):
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": entry.get("summary", "")[:200],
                     "vod_play_from": "UP主频道",
-                    "vod_play_url": f"{config_manager.service_params.url_parse}{entry.link}"
+                    "vod_play_url": entry.yt_videoid
                 })
             return videos
         except Exception as e:
@@ -133,27 +132,12 @@ class YoutubSpider(BaseSpider):
             return []
 
     @staticmethod
-    def resolve(url: str) -> str:
-        serv_params = config_manager.service_params
-        ydl_opts = {
-            "quiet": True,
-            "skip_download": True,
-            "format": "best",
-            "proxy": serv_params.vpn_proxy,
-            "cookiefile": serv_params.cookie_file,
+    def player_content(cls, flag, pid, vipFlags):
+        video_id = pid.split('$')[-1] if '$' in pid else pid
+        result = {
+            "parse": 1,
+            "url": f"https://www.youtube.com/embed/{video_id}?autoplay=1",
+            "header": cls._header,
+            "proxy": config_manager.service_params.vpn_proxy
         }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            formats = info.get("formats", [])
-            merged = [
-                f for f in formats
-                if f.get("url") and f.get("vcodec") not in (None, "none") and f.get("acodec") not in (None, "none")
-            ]
-
-            if not merged:
-                raise ValueError("未找到可直接播放的合并流")
-
-            merged.sort(key=lambda f: f.get("height") or 0, reverse=True)
-            best = merged[0]
-            return best["url"]
+        return result
