@@ -60,11 +60,6 @@ class BaseSpider(abc.ABC):
         return self.paginate_list(res, pg)
 
     @abc.abstractmethod
-    def player_content(self, flag: str, pid: str, vipFlags: str) -> Dict:
-        """播放视频（player配置后调用）"""
-        pass
-
-    @abc.abstractmethod
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         """采集数据（后台任务调用）"""
         pass

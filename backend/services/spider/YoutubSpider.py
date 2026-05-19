@@ -7,7 +7,6 @@ import feedparser
 import httpx
 
 from core.logger_factory import LoggerFactory
-from services import config_manager
 from services.spider.base import BaseSpider
 from services.spider.factory import register_spider
 
@@ -130,13 +129,3 @@ class YoutubSpider(BaseSpider):
         except Exception as e:
             logger.error(f"获取频道 {channel_id} 视频失败: {str(e)}")
             return []
-
-    def player_content(self, flag: str, pid: str, vipFlags: str) -> Dict:
-        video_id = pid.split('$')[-1] if '$' in pid else pid
-        result = {
-            "parse": 1,
-            "url": f"https://www.youtube.com/embed/{video_id}?autoplay=1",
-            "header": self._header,
-            "proxy": config_manager.service_params.vpn_proxy
-        }
-        return result
