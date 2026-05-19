@@ -44,28 +44,6 @@ async def get_vod(
     return {"class": spider.config.site_class, "list": []}
 
 
-@router.get("/player", summary="视频播放")
-async def get_player(
-        sp: Optional[str] = Query("v-youtub", description="来源标识，如 v-youtub"),
-        flag: Optional[str] = Query(None, description="线路标识"),
-        pid: Optional[str] = Query(None, description="视频ID（例如 4fkoZ7z5ggM）"),
-        vipFlags: Optional[str] = Query(None, description="VIP")
-):
-    logger.debug(f"player: flag={flag}, pid={pid}, vipFlags={vipFlags}")
-    try:
-        spider = SpiderFactory.get_spider(sp)
-        if not spider or not spider.config:
-            handle_exception(f"player sp={sp}对应的配置不存在", status.HTTP_400_BAD_REQUEST)
-
-        if 'http' in pid:
-            return pid.split('$')[-1] if '$' in pid else pid
-        else:
-            return spider.player_content(flag, pid, vipFlags)
-    except Exception as e:
-        logger.error(f"player request failed: {str(e)}", exc_info=True)
-        handle_exception(f"player request  failed.")
-
-
 @router.post("/collect", summary="数据采集", response_model=TaskResponse)
 async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTasks) -> TaskResponse:
     try:
