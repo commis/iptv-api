@@ -131,13 +131,12 @@ class YoutubSpider(BaseSpider):
             logger.error(f"获取频道 {channel_id} 视频失败: {str(e)}")
             return []
 
-    @staticmethod
-    def player_content(cls, flag, pid, vipFlags):
+    def player_content(self, flag: str, pid: str, vipFlags: str) -> Dict:
         video_id = pid.split('$')[-1] if '$' in pid else pid
         result = {
             "parse": 1,
             "url": f"https://www.youtube.com/embed/{video_id}?autoplay=1",
-            "header": cls._header,
+            "header": self._header,
             "proxy": config_manager.service_params.vpn_proxy
         }
         return result
