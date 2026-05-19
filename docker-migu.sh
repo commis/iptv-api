@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 TAG=latest
-CODE_DIR=/home/projects/src/github.com/commis/iptv-api
+CODE_DIR=/home/app/tvbox
 
 scriptpath=$(
   cd "$(dirname "$0")" || exit 1
