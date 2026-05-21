@@ -48,7 +48,7 @@ class YoutubSpider(BaseSpider):
     async def get_player(self, vid: str) -> Dict:
         return {
             "parse": 1,
-            "url": f"{self._get_base_url()}/embed/{vid}?autoplay=1",
+            "url": f"{self._get_base_url()}/watch?v={vid}",
             "header": self._header,
             "proxy": self._service.vpn_proxy
         }
