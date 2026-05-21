@@ -87,7 +87,8 @@ async def parse_channel_url(
 
     try:
         real_player = await spider.get_player(vid)
-        return real_player
+        if real_player.get("url"):
+            return real_player
     except Exception as e:
-        logger.error(f"parse {vid} video failed: {str(e)}", exc_info=True)
+        logger.error(f"parse {vid} video failed: {str(e)}", exc_info=False)
     return ApiResponse(code=101, message=resp_error, data=resp_data)

@@ -1,3 +1,4 @@
+import asyncio
 import random
 import re
 import time
@@ -5,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, override
 
 import httpx
+import yt_dlp
 
 from core.logger_factory import LoggerFactory
 from services.spider.base import BaseSpider
@@ -21,10 +23,7 @@ class YoutubSpider(BaseSpider):
     _header = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
                       "Chrome/131.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml,application/rss+xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
         "Referer": "https://www.youtube.com",
-        "Origin": "https://www.youtube.com"
     }
 
     def _get_base_url(self) -> str:
@@ -46,18 +45,48 @@ class YoutubSpider(BaseSpider):
 
     @override
     async def get_player(self, vid: str) -> Dict:
-        return {
+        result = {
             "parse": 1,
-            "url": f"{self._get_base_url()}/watch?v={vid}",
+            "url": "",
             "header": self._header,
             "proxy": self._service.vpn_proxy
         }
+        video_url = f"{self._get_base_url()}/watch?v={vid}"
+        try:
+            ydl_opts = {
+                "quiet": True,
+                "noplaylist": True,
+                "extract_flat": False,
+                "ignoreerrors": True,
+                "nocheckcertificate": True,
+                "javascript": True,
+                "extractor_args": {
+                    "youtube": {
+                        "player_client": ["web"],
+                        "po_token": []
+                    }
+                },
+                "cookiefile": self._service.cookie_file,
+                "proxy": self._service.vpn_proxy,
+                "http_headers": self._header,
+                "format": "best[ext=mp4][acodec!=none][vcodec!=none]/best",
+            }
+            loop = asyncio.get_event_loop()
+            info = await loop.run_in_executor(
+                None,
+                lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(video_url, download=False))
+            if info and isinstance(info, dict):
+                result["url"] = info.get("url", "")
+        except Exception as e:
+            logger.error(f"get player for {vid} error: {str(e)}")
+
+        return result
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]
         success = failed = skipped = processed = 0
 
-        async with httpx.AsyncClient(http2=True, timeout=20) as client:
+        async with httpx.AsyncClient(timeout=20) as client:
             for cat_name, channel_list in self.config.site_videos.items():
                 for uname in channel_list:
                     processed += 1
@@ -136,11 +165,10 @@ class YoutubSpider(BaseSpider):
                     "vod_remarks": f"{published_time.strftime('%m-%d %H:%M')}",
                     "vod_year": f"{published_time.strftime('%Y')}",
                     "vod_director": author,
-                    "vod_actor": author,
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": snippet["description"][:200],
-                    "vod_play_from": "播放",
-                    "vod_play_url": video_play_url
+                    "vod_play_from": "Youtube",
+                    "vod_play_url": f"播放${video_play_url}"
                 })
             return videos
         except Exception as e:
