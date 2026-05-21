@@ -1,9 +1,9 @@
+import random
 import re
 import time
 from datetime import datetime, timedelta
 from typing import Dict, List, override
 
-import feedparser
 import httpx
 
 from core.logger_factory import LoggerFactory
@@ -13,19 +13,25 @@ from services.spider.factory import register_spider
 logger = LoggerFactory.get_logger(__name__)
 
 ONE_WEEK_AGO = datetime.now() - timedelta(days=15)
+MAX_VIDEO_NUM = 10
 
 
 @register_spider("v-youtub")
 class YoutubSpider(BaseSpider):
     _header = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "Referer": "https://www.youtube.com"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml,application/rss+xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,zh-CN;q=0.8",
+        "Referer": "https://www.youtube.com",
+        "Origin": "https://www.youtube.com"
     }
 
     def _get_base_url(self) -> str:
         return self.config.site_collections[0].url
+
+    def _get_api_key(self) -> str:
+        return self.config.site_collections[0].key
 
     @override
     def get_list_data(self, t: str, pg: int) -> Dict:
@@ -38,11 +44,15 @@ class YoutubSpider(BaseSpider):
             data.append(video_data)
         return self.paginate_list(data, pg)
 
+    @override
+    async def get_player(self, vid: str) -> str:
+        return f"{self._get_base_url()}/embed/{vid}?autoplay=1"
+
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]
         success = failed = skipped = processed = 0
 
-        async with httpx.AsyncClient(timeout=15, verify=False) as client:
+        async with httpx.AsyncClient(http2=True, timeout=20) as client:
             for cat_name, channel_list in self.config.site_videos.items():
                 for uname in channel_list:
                     processed += 1
@@ -51,6 +61,7 @@ class YoutubSpider(BaseSpider):
                         failed += 1
                         continue
 
+                    time.sleep(random.uniform(1.5, 3))
                     videos = await self._get_recent_videos(client, channel_user, channel_id)
                     for v in videos:
                         video_name = v.get("vod_key")
@@ -87,7 +98,7 @@ class YoutubSpider(BaseSpider):
             url = f"{self._get_base_url()}/{channel_value}"
             resp = await client.get(url, follow_redirects=True, timeout=10)
             resp.raise_for_status()
-            match_id = re.search(r'channel_id=(UC[0-9A-Za-z_-]{22})', resp.text)
+            match_id = re.search(r'\?channel_id=(UC[0-9A-Za-z_-]{22})\"', resp.text)
             if match_id:
                 return channel_name.strip(), match_id.group(1)
             else:
@@ -98,34 +109,35 @@ class YoutubSpider(BaseSpider):
 
     async def _get_recent_videos(self, client: httpx.AsyncClient, channel_user: str, channel_id: str) -> List[Dict]:
         videos = []
-        rss_url = f"{self._get_base_url()}/feeds/videos.xml?channel_id={channel_id}"
+        rss_url = (f"https://www.googleapis.com/youtube/v3/search?channelId={channel_id}"
+                   f"&part=snippet&maxResults={MAX_VIDEO_NUM}&order=date&type=video&key={self._get_api_key()}")
         try:
-            resp = await client.get(rss_url, follow_redirects=True, timeout=20)
+            resp = await client.get(rss_url, headers=self._header, follow_redirects=True, timeout=20)
             resp.raise_for_status()
-            feed = feedparser.parse(resp.text)
-            for entry in feed.entries:
-                published_time = datetime(*entry.published_parsed[:6])
-                if published_time < ONE_WEEK_AGO:
-                    continue
-
+            data = resp.json()
+            for item in data.get("items", []):
+                video_id = item["id"]["videoId"]
+                snippet = item["snippet"]
+                author = snippet["channelTitle"]
+                published_str = snippet["publishedAt"]
+                published_time = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                video_play_url = f"{self._service.url_parse}".replace("{sp}", self._sp).replace("{vid}", video_id)
+                # video_play_url = f"{self._get_base_url()}/embed/{video_id}?autoplay=1"
                 videos.append({
-                    "vod_key": entry.yt_videoid,
-                    "vod_name": entry.title,
-                    "vod_pic": f"https://i.ytimg.com/vi/{entry.yt_videoid}/hqdefault.jpg",
+                    "vod_key": video_id,
+                    "vod_name": snippet["title"],
+                    "vod_pic": f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
                     "type_name": channel_user,
                     "vod_remarks": f"{published_time.strftime('%m-%d %H:%M')}",
                     "vod_year": f"{published_time.strftime('%Y')}",
-                    "vod_area": "未知",
-                    "vod_lang": "国语",
-                    "vod_director": entry.author,
-                    "vod_actor": entry.author,
-                    "vod_score": "0.0",
+                    "vod_director": author,
+                    "vod_actor": author,
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
-                    "vod_content": entry.get("summary", "")[:200],
-                    "vod_play_from": "ytplayer",
-                    "vod_play_url": entry.yt_videoid
+                    "vod_content": snippet["description"][:200],
+                    "vod_play_from": "Youtube",
+                    "vod_play_url": video_play_url
                 })
             return videos
         except Exception as e:
-            logger.error(f"获取频道 {channel_id} 视频失败: {str(e)}")
+            logger.error(f"获取频道 {channel_id} 数据失败: {str(e)}")
             return []

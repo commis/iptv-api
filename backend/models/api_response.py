@@ -9,7 +9,7 @@ class TaskResponse(BaseModel):
     data: Dict[str, str]
 
 
-class MiguResponse(BaseModel):
+class ApiResponse(BaseModel):
     code: int = 200
     url: str
     message: str = "成功生成播放地址"

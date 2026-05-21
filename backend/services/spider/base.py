@@ -21,6 +21,7 @@ class BaseSpider(abc.ABC):
     def __init__(self, sp: str):
         self._sp = sp
         self._config = config_manager.get_vod_config(sp)
+        self._service = config_manager.service_params
 
     @property
     def config(self):
@@ -58,6 +59,11 @@ class BaseSpider(abc.ABC):
             if keyword in name
         ]
         return self.paginate_list(res, pg)
+
+    # @abc.abstractmethod
+    async def get_player(self, vid: str) -> str:
+        """解析播放地址（播放时调用）"""
+        return ""
 
     @abc.abstractmethod
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:

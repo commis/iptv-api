@@ -8,7 +8,7 @@ from starlette.responses import RedirectResponse
 from core.constants import Constants
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateLiveRequest
-from models.api_response import MiguResponse, TaskResponse
+from models.api_response import ApiResponse, TaskResponse
 from services.channel import channel_manager
 from services.checker import ChannelChecker
 from services.redis import redis_client
@@ -96,8 +96,8 @@ def get_id_list():
 
 @router.get("/{id}", summary="获取单个频道播放地址")
 def parse_channel_url(
-    id: str = Path(..., description="频道ID，例如：cctv1"),
-    type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
+        id: str = Path(..., description="频道ID，例如：cctv1"),
+        type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
 ):
     """根据任务ID获取任务详情"""
     channel_id = id
@@ -120,7 +120,7 @@ def parse_channel_url(
         if chanel_url:
             match type:
                 case "json":
-                    return MiguResponse(url=chanel_url, message=resp_message, data=resp_data)
+                    return ApiResponse(url=chanel_url, message=resp_message, data=resp_data)
                 case _:
                     return RedirectResponse(
                         url=chanel_url, status_code=302,
@@ -129,4 +129,4 @@ def parse_channel_url(
     except Exception as e:
         logger.error(f"get {channel_id} video failed: {str(e)}", exc_info=True)
 
-    return MiguResponse(url="", code=101, message="失败获取播放地址", data=resp_data)
+    return ApiResponse(url="", code=101, message="失败获取播放地址", data=resp_data)

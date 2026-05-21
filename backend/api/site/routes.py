@@ -1,11 +1,12 @@
 from typing import Optional
 
-from fastapi import APIRouter, Query, BackgroundTasks
+from fastapi import APIRouter, Query, BackgroundTasks, Path
 from starlette import status
+from starlette.responses import RedirectResponse
 
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateVodRequest
-from models.api_response import TaskResponse
+from models.api_response import TaskResponse, ApiResponse
 from services import task_manager
 from services.spider.factory import SpiderFactory
 from utils.handler import handle_exception
@@ -69,3 +70,33 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
     except Exception as e:
         logger.error(f"update vod video request failed: {str(e)}", exc_info=True)
         handle_exception(f"update vod video request failed.")
+
+
+@router.get("/parse/{sp}/{vid}", summary="解析单个频道播放地址")
+async def parse_channel_url(
+        sp: str = Path(..., description="视频源，如 v-docs"),
+        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
+        type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
+):
+    logger.debug(f"parse: sp={sp}, vid={vid}")
+    resp_data = {"sp": sp, "id": vid}
+    resp_error = "失败解析播放地址"
+
+    spider = SpiderFactory.get_spider(sp)
+    if not spider or not spider.config:
+        logger.error(f"vod: sp={sp}对应的站点配置不存在")
+        return ApiResponse(code=400, message=resp_error, data=resp_data)
+
+    try:
+        real_url = await spider.get_player(vid)
+        match type:
+            case "json":
+                return ApiResponse(url=real_url, message="成功解析播放地址", data=resp_data)
+            case _:
+                return RedirectResponse(
+                    url=real_url, status_code=302,
+                    headers={'Content-Type': 'application/json;charset=UTF-8'}
+                )
+    except Exception as e:
+        logger.error(f"parse {vid} video failed: {str(e)}", exc_info=True)
+    return ApiResponse(code=101, message=resp_error, data=resp_data)

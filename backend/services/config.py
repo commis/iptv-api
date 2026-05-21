@@ -17,11 +17,16 @@ class CollectInfo:
 
     def __init__(self, collect_data: Dict[str, Any]):
         self._url: str = collect_data["url"]
+        self._key: str = collect_data.get("key", "")
         self._pic: Dict[str, Any] = collect_data.get("pic", {})
 
     @property
     def url(self):
         return self._url
+
+    @property
+    def key(self):
+        return self._key
 
     def repair_pic_url(self, key: str, data: Dict[str, Any]):
         if self._pic:
