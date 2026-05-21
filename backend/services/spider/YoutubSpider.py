@@ -45,8 +45,13 @@ class YoutubSpider(BaseSpider):
         return self.paginate_list(data, pg)
 
     @override
-    async def get_player(self, vid: str) -> str:
-        return f"{self._get_base_url()}/embed/{vid}?autoplay=1"
+    async def get_player(self, vid: str) -> Dict:
+        return {
+            "parse": 1,
+            "url": f"{self._get_base_url()}/embed/{vid}?autoplay=1",
+            "header": self._header,
+            "proxy": self._service.vpn_proxy
+        }
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]

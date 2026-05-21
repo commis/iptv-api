@@ -10,9 +10,7 @@ soupsieve==2.5
 pydantic==2.8.2
 
 # 工具类
-m3u8==4.1.0
 pypinyin==0.52.0
 pyyaml==6.0.2
 redis==7.3.0
-yt-dlp==2026.3.17
 h2==4.3.0

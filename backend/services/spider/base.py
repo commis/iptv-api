@@ -61,9 +61,9 @@ class BaseSpider(abc.ABC):
         return self.paginate_list(res, pg)
 
     # @abc.abstractmethod
-    async def get_player(self, vid: str) -> str:
+    async def get_player(self, vid: str) -> Dict:
         """解析播放地址（播放时调用）"""
-        return ""
+        return {}
 
     @abc.abstractmethod
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:

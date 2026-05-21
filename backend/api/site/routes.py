@@ -2,7 +2,6 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, BackgroundTasks, Path
 from starlette import status
-from starlette.responses import RedirectResponse
 
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateVodRequest
@@ -74,9 +73,8 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
 
 @router.get("/parse/{sp}/{vid}", summary="解析单个频道播放地址")
 async def parse_channel_url(
-        sp: str = Path(..., description="视频源，如 v-docs"),
-        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
-        type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
+        sp: str = Path(..., description="视频源，如 v-youtub"),
+        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
 ):
     logger.debug(f"parse: sp={sp}, vid={vid}")
     resp_data = {"sp": sp, "id": vid}
@@ -88,15 +86,8 @@ async def parse_channel_url(
         return ApiResponse(code=400, message=resp_error, data=resp_data)
 
     try:
-        real_url = await spider.get_player(vid)
-        match type:
-            case "json":
-                return ApiResponse(url=real_url, message="成功解析播放地址", data=resp_data)
-            case _:
-                return RedirectResponse(
-                    url=real_url, status_code=302,
-                    headers={'Content-Type': 'application/json;charset=UTF-8'}
-                )
+        real_player = await spider.get_player(vid)
+        return real_player
     except Exception as e:
         logger.error(f"parse {vid} video failed: {str(e)}", exc_info=True)
     return ApiResponse(code=101, message=resp_error, data=resp_data)
