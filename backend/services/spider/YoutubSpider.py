@@ -139,7 +139,7 @@ class YoutubSpider(BaseSpider):
                     "vod_actor": author,
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": snippet["description"][:200],
-                    "vod_play_from": "Youtube",
+                    "vod_play_from": "播放",
                     "vod_play_url": video_play_url
                 })
             return videos
