@@ -43,7 +43,7 @@ class YoutubSpider(BaseSpider):
     @override
     async def get_player(self, vid: str) -> Dict:
         proxy = self._service.vpn_proxy
-        result = {"parse": 0, "url": "", "header": self._header, "proxy": proxy}
+        result = self.get_player_json(0, "")
         try:
             import os, yt_dlp
             cookie_path = self._service.cookie_file
@@ -117,6 +117,10 @@ class YoutubSpider(BaseSpider):
                 logger.error(f"[YouTube] 解析错误 {vid}: {err}")
 
         return result
+
+    @override
+    def get_player_json(self, parse, url):
+        return {"parse": 0, "url": url, "header": self._header, "proxy": self._service.vpn_proxy}
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]

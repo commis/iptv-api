@@ -65,6 +65,9 @@ class BaseSpider(abc.ABC):
         """解析播放地址（播放时调用）"""
         return {}
 
+    def get_player_json(self, parse, url):
+        pass
+
     @abc.abstractmethod
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         """采集数据（后台任务调用）"""

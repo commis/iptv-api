@@ -1,10 +1,6 @@
 .idea/
 
 logs/
-spider/dist/
-spider/dist/ext/*.xml
-spider/dist/ext/yt_cookies.txt
-spider/dist/json/result.*
 
 **/__pycache__/
 **/*.pyc
