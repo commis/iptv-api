@@ -86,8 +86,14 @@ async def parse_channel_url(
         return ApiResponse(code=400, message=resp_error, data=resp_data)
 
     try:
+        redis_key = spider.make_redis_key("player", vid)
+        real_player = spider.redis_get(redis_key)
+        if real_player:
+            return real_player
+
         real_player = await spider.get_player(vid)
         if real_player.get("url"):
+            spider.redis_set(redis_key, real_player, ex=-1)
             return real_player
     except Exception as e:
         logger.error(f"parse {vid} video failed: {str(e)}", exc_info=False)

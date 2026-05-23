@@ -2,11 +2,10 @@ import asyncio
 import random
 import re
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, override
+from datetime import datetime
+from typing import Dict, override, List
 
 import httpx
-import yt_dlp
 
 from core.logger_factory import LoggerFactory
 from services.spider.base import BaseSpider
@@ -14,16 +13,14 @@ from services.spider.factory import register_spider
 
 logger = LoggerFactory.get_logger(__name__)
 
-ONE_WEEK_AGO = datetime.now() - timedelta(days=15)
 MAX_VIDEO_NUM = 10
 
 
 @register_spider("v-youtub")
 class YoutubSpider(BaseSpider):
     _header = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                      "Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://www.youtube.com",
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0,gzip(gfe)",
+        "Accept-Language": "zh,en-US;q\u003d0.9"
     }
 
     def _get_base_url(self) -> str:
@@ -45,40 +42,79 @@ class YoutubSpider(BaseSpider):
 
     @override
     async def get_player(self, vid: str) -> Dict:
-        result = {
-            "parse": 1,
-            "url": "",
-            "header": self._header,
-            "proxy": self._service.vpn_proxy
-        }
-        video_url = f"{self._get_base_url()}/watch?v={vid}"
+        proxy = self._service.vpn_proxy
+        result = {"parse": 0, "url": "", "header": self._header, "proxy": proxy}
         try:
-            ydl_opts = {
-                "quiet": True,
-                "noplaylist": True,
-                "extract_flat": False,
-                "ignoreerrors": True,
-                "nocheckcertificate": True,
-                "javascript": True,
-                "extractor_args": {
-                    "youtube": {
-                        "player_client": ["web"],
-                        "po_token": []
-                    }
-                },
-                "cookiefile": self._service.cookie_file,
-                "proxy": self._service.vpn_proxy,
-                "http_headers": self._header,
-                "format": "best[ext=mp4][acodec!=none][vcodec!=none]/best",
-            }
+            import os, yt_dlp
+            cookie_path = self._service.cookie_file
+            if not cookie_path or not os.path.exists(cookie_path):
+                logger.error(f"[YouTube] cookie 文件不存在: {cookie_path}")
+                return result
+
+            url = f"https://www.youtube.com/watch?v={vid}"
             loop = asyncio.get_event_loop()
-            info = await loop.run_in_executor(
-                None,
-                lambda: yt_dlp.YoutubeDL(ydl_opts).extract_info(video_url, download=False))
-            if info and isinstance(info, dict):
-                result["url"] = info.get("url", "")
+
+            def run_parse():
+                opts = {
+                    "quiet": True,
+                    "no_warnings": True,
+                    "cookiefile": cookie_path,
+                    "proxy": proxy or None,
+                    "http_headers": self._header,
+                    "noplaylist": True,
+                    "extractor_args": {"youtube": {"player_client": ["web"]}},
+                }
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=False, process=False)
+
+                if not info:
+                    return None
+
+                formats = info.get("formats") or []
+
+                # 1. 优先：有声有画的 mp4（progressive，无需 ffmpeg）
+                progressive = [
+                    f for f in formats
+                    if (f.get("url")
+                        and f.get("ext") == "mp4"
+                        and f.get("vcodec", "none") != "none"
+                        and f.get("acodec", "none") != "none")
+                ]
+                if progressive:
+                    return max(progressive, key=lambda f: f.get("height") or 0)["url"]
+
+                # 2. 降级：有画面的任意格式
+                video_only = [
+                    f for f in formats
+                    if f.get("url") and f.get("vcodec", "none") != "none"
+                ]
+                if video_only:
+                    return max(video_only, key=lambda f: f.get("height") or 0)["url"]
+
+                # 3. 兜底：第一个有 url 的
+                for f in formats:
+                    if f.get("url"):
+                        return f["url"]
+
+                return None
+
+            stream_url = await loop.run_in_executor(None, run_parse)
+            if stream_url:
+                result["parse"] = 1
+                result["url"] = stream_url
+            else:
+                logger.warning(f"[YouTube] 未获取到可用流: {vid}")
+
         except Exception as e:
-            logger.error(f"get player for {vid} error: {str(e)}")
+            err = str(e)
+            if "Sign in" in err or "bot" in err:
+                logger.error(f"[YouTube] Cookie 已过期，请重新导出: {self._service.cookie_file}")
+            elif "Private video" in err:
+                logger.error(f"[YouTube] 私有视频: {vid}")
+            elif "Video unavailable" in err:
+                logger.error(f"[YouTube] 视频不可用: {vid}")
+            else:
+                logger.error(f"[YouTube] 解析错误 {vid}: {err}")
 
         return result
 

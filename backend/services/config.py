@@ -90,7 +90,7 @@ class ServParams:
     def __init__(self, config_data: Dict[str, Any]):
         self._log_level = config_data.get("log_level", "info")
         self._url_parse = config_data.get("url_parse", "")
-        self._vpn_proxy = config_data.get("vpn_proxy", "")
+        self._vpn_proxy = config_data.get("vpn_proxy", None)
         self._cookie_file = config_data.get("cookie_file", "")
 
     @property

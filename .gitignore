@@ -2,8 +2,9 @@
 
 logs/
 spider/dist/
-spider/dist/epg/*.xml
-spider/dist/epg/result.*
+spider/dist/ext/*.xml
+spider/dist/ext/yt_cookies.txt
+spider/dist/json/result.*
 
 **/__pycache__/
 **/*.pyc
