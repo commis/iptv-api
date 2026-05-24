@@ -2,6 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, BackgroundTasks, Path
 from starlette import status
+from starlette.responses import RedirectResponse
 
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateVodRequest
@@ -74,28 +75,40 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
 @router.get("/parse/{sp}/{vid}", summary="解析单个频道播放地址")
 async def parse_channel_url(
         sp: str = Path(..., description="视频源，如 v-youtub"),
-        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
+        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
+        type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
 ):
     logger.debug(f"parse: sp={sp}, vid={vid}")
-    resp_data = {"sp": sp, "id": vid}
-    resp_error = "失败解析播放地址"
+
+    resp_data = {"sp": sp, "id": vid, "type": type}
+    resp_message = "失败解析播放地址"
 
     spider = SpiderFactory.get_spider(sp)
     if not spider or not spider.config:
         logger.error(f"vod: sp={sp}对应的站点配置不存在")
-        return ApiResponse(code=400, message=resp_error, data=resp_data)
+        return ApiResponse(code=400, message=resp_message, data=resp_data)
 
     try:
         redis_key = spider.make_redis_key("player", vid)
         real_player = spider.redis_get(redis_key)
-        if real_player:
-            return spider.get_player_json(1, real_player["url"])
+        if not real_player:
+            player_url = await spider.get_player(vid)
+            if player_url:
+                real_player = {"url": player_url}
+                spider.redis_set(redis_key, real_player, ex=-1)
 
-        real_player = await spider.get_player(vid)
         if real_player.get("url"):
-            cache_data = {"url": real_player["url"]}
-            spider.redis_set(redis_key, cache_data, ex=-1)
-            return real_player
+            json_data = spider.get_player_json(1, real_player["url"])
+            match type:
+                case "json":
+                    play_url = json_data["url"]
+                    json_data.pop("url")
+                    return ApiResponse(url=play_url, data=json_data)
+                case _:
+                    return RedirectResponse(
+                        url=json_data["url"], status_code=302,
+                        headers=json_data["header"]
+                    )
     except Exception as e:
         logger.error(f"parse {vid} video failed: {str(e)}", exc_info=False)
-    return ApiResponse(code=101, message=resp_error, data=resp_data)
+    return ApiResponse(code=101, message=resp_message, data=resp_data)

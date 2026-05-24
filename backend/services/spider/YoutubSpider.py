@@ -3,7 +3,7 @@ import random
 import re
 import time
 from datetime import datetime
-from typing import Dict, override, List
+from typing import Dict, override, List, Any
 
 import httpx
 
@@ -41,15 +41,14 @@ class YoutubSpider(BaseSpider):
         return self.paginate_list(data, pg)
 
     @override
-    async def get_player(self, vid: str) -> Dict:
+    async def get_player(self, vid: str) -> str | None:
         proxy = self._service.vpn_proxy
-        result = self.get_player_json(0, "")
         try:
             import os, yt_dlp
             cookie_path = self._service.cookie_file
             if not cookie_path or not os.path.exists(cookie_path):
                 logger.error(f"[YouTube] cookie 文件不存在: {cookie_path}")
-                return result
+                return None
 
             url = f"https://www.youtube.com/watch?v={vid}"
             loop = asyncio.get_event_loop()
@@ -100,11 +99,9 @@ class YoutubSpider(BaseSpider):
 
             stream_url = await loop.run_in_executor(None, run_parse)
             if stream_url:
-                result["parse"] = 1
-                result["url"] = stream_url
+                return stream_url
             else:
                 logger.warning(f"[YouTube] 未获取到可用流: {vid}")
-
         except Exception as e:
             err = str(e)
             if "Sign in" in err or "bot" in err:
@@ -116,11 +113,11 @@ class YoutubSpider(BaseSpider):
             else:
                 logger.error(f"[YouTube] 解析错误 {vid}: {err}")
 
-        return result
+        return None
 
     @override
     def get_player_json(self, parse, url):
-        return {"parse": 0, "url": url, "header": self._header, "proxy": self._service.vpn_proxy}
+        return {"parse": parse, "url": url, "header": self._header}
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]
