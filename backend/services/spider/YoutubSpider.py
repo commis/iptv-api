@@ -1,9 +1,14 @@
 import asyncio
+import json
+import os
 import random
 import re
+import shutil
+import subprocess
+import sys
 import time
 from datetime import datetime
-from typing import Dict, override, List, Any
+from typing import Dict, override, List, Optional
 
 import httpx
 
@@ -22,12 +27,145 @@ class YoutubSpider(BaseSpider):
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0,gzip(gfe)",
         "Accept-Language": "zh,en-US;q\u003d0.9"
     }
+    _deno_available = False
+    _deno_bin_dir = None
 
     def _get_base_url(self) -> str:
         return self.config.site_collections[0].url
 
     def _get_api_key(self) -> str:
         return self.config.site_collections[0].key
+
+    def _ensure_deno(self, env: dict) -> bool:
+        """确保 Deno 可用（高性能缓存版）"""
+        if self._deno_available:
+            if self._deno_bin_dir:
+                current_path = env.get("PATH", "")
+                if self._deno_bin_dir not in current_path.split(os.pathsep):
+                    env["PATH"] = self._deno_bin_dir + os.pathsep + current_path
+            return True
+
+        deno_path = shutil.which("deno", path=env.get("PATH"))
+        if deno_path:
+            self._deno_available = True
+            self._deno_bin_dir = None
+            logger.debug("[YouTube] Deno 已在 PATH 中")
+            return True
+
+        possible_paths = [
+            "/usr/local/bin",
+            os.path.expanduser("~/.deno/bin"),
+            "/root/.deno/bin",
+        ]
+        for p in possible_paths:
+            deno_bin = os.path.join(p, "deno")
+            if os.path.isfile(deno_bin) and os.access(deno_bin, os.X_OK):
+                self._deno_available = True
+                self._deno_bin_dir = p
+                env["PATH"] = p + os.pathsep + env.get("PATH", "")
+                logger.debug(f"[YouTube] Deno 位于 {p}，已加入 PATH")
+                return True
+
+        logger.error("[YouTube] ❌ 未找到 Deno 运行时！请安装 Deno 或设置正确的 PATH")
+        self._deno_available = False
+        return False
+
+    def _sync_parse(self, url: str, cookie_path: str, proxy: Optional[str]) -> Optional[str]:
+        """同步解析逻辑（优化版：保留 Deno 检查，超时降至 20s，日志精简）"""
+        env = os.environ.copy()
+        if not self._ensure_deno(env):
+            return None
+
+        cmd = [
+            sys.executable, "-m", "yt_dlp", "-v",
+            "-j",
+            "--cookies", cookie_path,
+            "--remote-components", "ejs:npm",
+            "--no-playlist",
+            "--socket-timeout", "20",
+        ]
+        if proxy:
+            cmd.extend(["--proxy", proxy])
+        cmd.append(url)
+        logger.debug(f"[YouTube] 执行命令: {' '.join(cmd)}")
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=20,
+                env=env,
+            )
+
+            # 记录 stderr 前 500 字符（便于排错）
+            if proc.stderr:
+                err_head = proc.stderr.strip()[:500]
+                logger.debug(f"[YouTube] yt-dlp stderr 头部:\n{err_head}")
+
+            if proc.returncode != 0:
+                logger.warning(f"[YouTube] yt-dlp 执行失败，返回码 {proc.returncode}")
+                return None
+
+            info = json.loads(proc.stdout)
+            return self._select_best_url(info, vid=url.split("=")[-1], min_h=360, max_h=720)
+
+        except subprocess.TimeoutExpired:
+            logger.warning("[YouTube] yt-dlp 执行超时（20秒）")
+        except json.JSONDecodeError as e:
+            logger.warning(f"[YouTube] JSON 解析失败: {e}")
+        except Exception as e:
+            logger.warning(f"[YouTube] 命令行异常: {e}")
+
+        return None
+
+    def _select_best_url(self, info: dict, vid: str = "", min_h: int = 360, max_h: int = 720) -> Optional[str]:
+        """优化：增加 protocol 过滤，使用生成器减少内存"""
+        formats = info.get("formats") or []
+
+        def is_video(f):
+            return (
+                    f.get("url")
+                    and f.get("vcodec") != "none"
+                    and f.get("height", 0) > 0
+                    and f.get("protocol") not in ("mhtml", "http_dash_segments")
+                    and not f["url"].split("?")[0].endswith((".jpg", ".png", ".webp"))
+            )
+
+        # 1. progressive (有音频)
+        progressive = [
+            f for f in formats
+            if is_video(f) and f.get("acodec") != "none" and min_h <= f["height"] <= max_h
+        ]
+        if progressive:
+            best = max(progressive, key=lambda x: x["height"])
+            logger.info(f"[YouTube] 选择 progressive {best['height']}p: {vid}")
+            return best["url"]
+
+        # 2. video only
+        video_only = [
+            f for f in formats
+            if is_video(f) and f.get("acodec") == "none" and min_h <= f["height"] <= max_h
+        ]
+        if video_only:
+            best = max(video_only, key=lambda x: x["height"])
+            logger.info(f"[YouTube] 选择 video only {best['height']}p: {vid}")
+            return best["url"]
+
+        # 3. 降级
+        all_video = [f for f in formats if is_video(f)]
+        if all_video:
+            below = [f for f in all_video if f["height"] < min_h]
+            if below:
+                fallback = max(below, key=lambda x: x["height"])
+                logger.debug(f"[YouTube] 降至 {fallback['height']}p (低于{min_h}p)")
+                return fallback["url"]
+            above = [f for f in all_video if f["height"] > max_h]
+            if above:
+                fallback = min(above, key=lambda x: x["height"])
+                logger.debug(f"[YouTube] 降至 {fallback['height']}p (高于{max_h}p)")
+                return fallback["url"]
+
+        return info.get("url") or (info.get("requested_formats", [{}])[0].get("url"))
 
     @override
     def get_list_data(self, t: str, pg: int) -> Dict:
@@ -41,11 +179,11 @@ class YoutubSpider(BaseSpider):
         return self.paginate_list(data, pg)
 
     @override
-    async def get_player(self, vid: str) -> str | None:
+    async def get_player(self, vid: str) -> Optional[str]:
+        """解析 YouTube 视频，返回 360~720p 的可播放直链"""
         proxy = self._service.vpn_proxy
+        cookie_path = self._service.cookie_file
         try:
-            import os, yt_dlp
-            cookie_path = self._service.cookie_file
             if not cookie_path or not os.path.exists(cookie_path):
                 logger.error(f"[YouTube] cookie 文件不存在: {cookie_path}")
                 return None
@@ -53,59 +191,17 @@ class YoutubSpider(BaseSpider):
             url = f"https://www.youtube.com/watch?v={vid}"
             loop = asyncio.get_event_loop()
 
-            def run_parse():
-                opts = {
-                    "quiet": True,
-                    "no_warnings": True,
-                    "cookiefile": cookie_path,
-                    "proxy": proxy or None,
-                    "http_headers": self._header,
-                    "noplaylist": True,
-                    "extractor_args": {"youtube": {"player_client": ["web"]}},
-                }
-                with yt_dlp.YoutubeDL(opts) as ydl:
-                    info = ydl.extract_info(url, download=False, process=False)
-
-                if not info:
-                    return None
-
-                formats = info.get("formats") or []
-
-                # 1. 优先：有声有画的 mp4（progressive，无需 ffmpeg）
-                progressive = [
-                    f for f in formats
-                    if (f.get("url")
-                        and f.get("ext") == "mp4"
-                        and f.get("vcodec", "none") != "none"
-                        and f.get("acodec", "none") != "none")
-                ]
-                if progressive:
-                    return max(progressive, key=lambda f: f.get("height") or 0)["url"]
-
-                # 2. 降级：有画面的任意格式
-                video_only = [
-                    f for f in formats
-                    if f.get("url") and f.get("vcodec", "none") != "none"
-                ]
-                if video_only:
-                    return max(video_only, key=lambda f: f.get("height") or 0)["url"]
-
-                # 3. 兜底：第一个有 url 的
-                for f in formats:
-                    if f.get("url"):
-                        return f["url"]
-
-                return None
-
-            stream_url = await loop.run_in_executor(None, run_parse)
+            stream_url = await loop.run_in_executor(
+                None, self._sync_parse, url, cookie_path, proxy
+            )
             if stream_url:
                 return stream_url
-            else:
-                logger.warning(f"[YouTube] 未获取到可用流: {vid}")
+            logger.warning(f"[YouTube] 未获取到可用流: {vid}")
+
         except Exception as e:
             err = str(e)
             if "Sign in" in err or "bot" in err:
-                logger.error(f"[YouTube] Cookie 已过期，请重新导出: {self._service.cookie_file}")
+                logger.error(f"[YouTube] Cookie 已过期: {cookie_path}")
             elif "Private video" in err:
                 logger.error(f"[YouTube] 私有视频: {vid}")
             elif "Video unavailable" in err:
