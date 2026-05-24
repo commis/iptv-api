@@ -14,8 +14,8 @@ RUN sed -i "s@deb.debian.org@mirrors.aliyun.com@g" /etc/apt/sources.list.d/debia
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends unzip curl gcc libssl-dev ca-certificates && \
-    curl -fsSL https://deno.land/install.sh | sh -s -- -y && \
-    mv /root/.deno/bin/deno /usr/local/bin/deno && \
+    curl -fsSL https://deno.land/install.sh | DENO_INSTALL=/usr/local sh && \
+    echo "=== 检查 deno ===" && deno --version && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY backend/requirements.txt ./backend/
@@ -30,6 +30,7 @@ FROM python:3.12-slim-bookworm
 WORKDIR /app
 
 COPY --from=builder /home/cache-python/tvbox312 /home/cache-python/tvbox312
+COPY --from=builder /usr/local/bin/deno /usr/local/bin/deno
 
 COPY .env .
 COPY backend/ ./backend/
@@ -37,7 +38,7 @@ COPY scripts/ ./scripts/
 COPY spider/ ./spider/
 
 ENV VIRTUAL_ENV="/home/cache-python/tvbox312"
-ENV PATH="/home/cache-python/tvbox312/bin:$PATH"
+ENV PATH="/home/cache-python/tvbox312/bin:/usr/local/bin:$PATH"
 ENV PYTHONPATH="/app/backend"
 
 EXPOSE 8001

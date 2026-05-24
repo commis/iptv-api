@@ -97,7 +97,7 @@ async def parse_channel_url(
                 real_player = {"url": player_url}
                 spider.redis_set(redis_key, real_player, ex=-1)
 
-        if real_player.get("url"):
+        if real_player:
             json_data = spider.get_player_json(1, real_player["url"])
             match type:
                 case "json":
