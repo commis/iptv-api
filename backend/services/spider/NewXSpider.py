@@ -35,7 +35,7 @@ class NewXSpider(BaseSpider):
             "vod_name": item.get("title", ""),
             "vod_pic": item.get("ThumbUrl", ""),
             "vod_play_from": "XVIDEOS直连",
-            "vod_play_url": item.get("hls", ""),
+            "vod_play_url": f"播放${item.get("hls", "")}",
         }
 
     @override
