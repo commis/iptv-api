@@ -18,14 +18,15 @@ from services.spider.factory import register_spider
 
 logger = LoggerFactory.get_logger(__name__)
 
-MAX_VIDEO_NUM = 10
+MAX_VIDEO_NUM = 8
 
 
 @register_spider("v-youtub")
 class YoutubSpider(BaseSpider):
     _header = {
-        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:150.0) Gecko/20100101 Firefox/150.0,gzip(gfe)",
-        "Accept-Language": "zh,en-US;q\u003d0.9"
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0",
+        "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com"
     }
     _deno_available = False
     _deno_bin_dir = None
@@ -168,7 +169,7 @@ class YoutubSpider(BaseSpider):
         return info.get("url") or (info.get("requested_formats", [{}])[0].get("url"))
 
     @override
-    def get_list_data(self, t: str, pg: int) -> Dict:
+    async def get_list_data(self, t: str, pg: int) -> Dict:
         cat_name = self.config.get_site_cate_name(t)
         cat_data_list = self.redis_dir_data(cat_name)
         data = []
@@ -236,7 +237,7 @@ class YoutubSpider(BaseSpider):
                         redis_key = self.make_redis_key(cat_name, video_name)
                         if not is_full and self.redis_exists(redis_key):
                             continue
-                        self.redis_set(redis_key, video_data, ex=10 * 86400)
+                        self.redis_set(redis_key, video_data, ex=2 * 86400)
 
                     success += 1
                     task_info.update({
@@ -300,7 +301,7 @@ class YoutubSpider(BaseSpider):
                     "vod_director": author,
                     "vod_time": f"{published_time.strftime('%Y-%m-%d %H:%M:%S')}",
                     "vod_content": snippet["description"][:200],
-                    "vod_play_from": "Youtube",
+                    "vod_play_from": "Youtube直连",
                     "vod_play_url": f"播放${video_play_url}"
                 })
             return videos

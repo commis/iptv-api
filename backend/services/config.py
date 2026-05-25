@@ -44,7 +44,7 @@ class SiteVideoConfig:
 
         self._site_collects: List[CollectInfo] = []
         self._site_class: List[Dict] = []
-        self._site_videos: Dict[str, List[str]] = {}
+        self._site_videos: Dict[str, List[Any]] = {}
         self._video_total = 0
 
         collect_list = config_data.get("collect_sites", [])
@@ -53,8 +53,9 @@ class SiteVideoConfig:
 
         class_config = config_data.get("class", {})
         for idx, (cat_name, data) in enumerate(class_config.items(), start=1):
+            typeid = data.get("typeid", None)
             episodes = data.get("episodes", [])
-            self._site_class.append({"type_id": str(idx), "type_name": cat_name})
+            self._site_class.append({"type_id": typeid if typeid else str(idx), "type_name": cat_name})
             self._site_videos[cat_name] = episodes
             self._video_total += len(episodes)
 

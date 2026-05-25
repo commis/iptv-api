@@ -31,7 +31,7 @@ class BaseSpider(abc.ABC):
     # 必须实现的抽象方法
     # ------------------------------
     # @abc.abstractmethod
-    def get_list_data(self, t: str, pg: int) -> Dict:
+    async def get_list_data(self, t: str, pg: int) -> Dict:
         """获取列表数据（ac=detail & t=分类ID 时调用）"""
         cat_name = self.config.get_site_cate_name(t)
         videos = self.config.site_videos.get(cat_name, [])
@@ -39,7 +39,7 @@ class BaseSpider(abc.ABC):
         return self.paginate_list(data, pg)
 
     # @abc.abstractmethod
-    def get_detail_data(self, ids: str) -> Dict:
+    async def get_detail_data(self, ids: str) -> Dict:
         """获取详情数据（ac=detail & ids=cat/name 时调用）"""
         try:
             cat_name, video_name = unquote(ids).split("/", 1)
@@ -50,7 +50,7 @@ class BaseSpider(abc.ABC):
             return {"list": []}
 
     # @abc.abstractmethod
-    def search_data(self, keyword: str, pg: int) -> Dict:
+    async def search_data(self, keyword: str, pg: int) -> Dict:
         """搜索数据（wd=关键词 时调用）"""
         res = [
             self.get_video_base_from_redis(cat, name)

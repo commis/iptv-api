@@ -32,14 +32,14 @@ async def get_vod(
 
     # 搜索优先
     if wd:
-        return spider.search_data(wd, pg)
+        return await spider.search_data(wd, pg)
 
     # 详情数据
     if ac == "detail":
         if ids:
-            return spider.get_detail_data(ids)
+            return await spider.get_detail_data(ids)
         if t:
-            return spider.get_list_data(t, pg)
+            return await spider.get_list_data(t, pg)
 
     # 默认返回分类（ac=list）
     return {"class": spider.config.site_class, "list": []}
@@ -72,7 +72,7 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
         handle_exception(f"update vod video request failed.")
 
 
-@router.get("/parse/{sp}/{vid}", summary="解析单个频道播放地址")
+@router.get("/{sp}/{vid}", summary="解析单个频道播放地址")
 async def parse_channel_url(
         sp: str = Path(..., description="视频源，如 v-youtub"),
         vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
