@@ -23,20 +23,19 @@ class NewXSpider(BaseSpider):
 
     def _process_cate_detail(self, item: Dict, site_url) -> Dict:
         return {
-            "vod_key": item.get("url", "").replace(f"{site_url}?xvid=", ""),
+            "vod_id": item.get("url", "").replace(f"{site_url}?xvid=", ""),
             "vod_name": item.get("title", "").replace("AVOTC资源网——", ""),
             "vod_pic": item.get("img", ""),
             "vod_remarks": item.get("time", ""),
         }
 
-    def _process_video_detail(self, item: Dict) -> Dict:
+    def _process_video_detail(self, vid: str, item: Dict) -> Dict:
         return {
-            "vod_id": item["videoid"],
-            "vod_name": item.get("title", "").replace("AVOTC资源网——", ""),
-            "vod_pic": item.get("img", ""),
-            # "type_name": cat_name,
-            "vod_remarks": item.get("time", ""),
-            "vod_url": item.get("url", ""),
+            "vod_id": vid,
+            "vod_name": item.get("title", ""),
+            "vod_pic": item.get("ThumbUrl", ""),
+            "vod_play_from": "XVIDEOS直连",
+            "vod_play_url": item.get("hls", ""),
         }
 
     @override
@@ -63,13 +62,13 @@ class NewXSpider(BaseSpider):
             data = None
             for site in self.config.site_collections:
                 try:
-                    params = {"xvid": key}
+                    params = {"xvid": ids}
                     url = f"{site.url}?{urlencode(params)}"
                     resp = await client.get(url, headers=headers)
                     resp.raise_for_status()
-                    data = resp.json()
-                    if data:
-                        data = self._process_video_detail(data)
+                    resp_json = resp.json()
+                    if resp_json:
+                        data = self._process_video_detail(ids, resp_json)
                         break
                 except Exception as e:
                     continue
@@ -77,14 +76,21 @@ class NewXSpider(BaseSpider):
 
     @override
     async def search_data(self, keyword: str, pg: int) -> Dict:
-        """搜索数据（wd=关键词 时调用）"""
-        res = [
-            self.get_video_base_from_redis(cat, name)
-            for cat, videos in self.config.site_videos.items()
-            for name in videos
-            if keyword in name
-        ]
-        return self.paginate_list(res, pg)
+        async with httpx.AsyncClient(timeout=15, verify=False) as client:
+            videos = []
+            for site in self.config.site_collections:
+                try:
+                    params = {"play": "k", "k": keyword}
+                    url = f"{site.url}?{urlencode(params)}"
+                    resp = await client.get(url, headers=headers)
+                    resp.raise_for_status()
+                    data = resp.json()
+                    if data and len(data) > 0:
+                        for item in data:
+                            videos.append(self._process_cate_detail(item, site.url))
+                except Exception as e:
+                    continue
+        return self.paginate_list(videos, pg)
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]
