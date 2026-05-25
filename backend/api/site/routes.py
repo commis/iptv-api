@@ -98,17 +98,16 @@ async def parse_channel_url(
                 spider.redis_set(redis_key, real_player, ex=-1)
 
         if real_player:
-            json_data = spider.get_player_json(1, real_player["url"])
+            json_data = spider.get_player_json(1, vid, real_player["url"])
+            player_url = json_data.pop("url")
             match type:
                 case "json":
-                    play_url = json_data["url"]
-                    json_data.pop("url")
-                    return ApiResponse(url=play_url, data=json_data)
+                    return ApiResponse(url=player_url, data=json_data)
                 case _:
                     return RedirectResponse(
-                        url=json_data["url"], status_code=302,
+                        url=player_url, status_code=302,
                         headers=json_data["header"]
                     )
     except Exception as e:
-        logger.error(f"parse {vid} video failed: {str(e)}", exc_info=False)
+        logger.error(f"parse {vid} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)

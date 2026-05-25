@@ -212,8 +212,8 @@ class YoutubSpider(BaseSpider):
         return None
 
     @override
-    def get_player_json(self, parse, url):
-        return {"parse": parse, "url": url, "header": self._header}
+    def get_player_json(self, parse, vid, url):
+        return {"vid": vid, "parse": parse, "url": url, "header": self._header}
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]

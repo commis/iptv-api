@@ -65,7 +65,7 @@ class BaseSpider(abc.ABC):
         """解析播放地址（播放时调用）"""
         return {}
 
-    def get_player_json(self, parse, url):
+    def get_player_json(self, parse, vid, url):
         pass
 
     @abc.abstractmethod
