@@ -104,6 +104,7 @@ async def parse_channel_url(
                 case "json":
                     return ApiResponse(url=player_url, data=json_data)
                 case _:
+                    logger.debug(f"parse {vid} play url: {player_url}")
                     return RedirectResponse(
                         url=player_url, status_code=302,
                         headers=json_data["header"]
