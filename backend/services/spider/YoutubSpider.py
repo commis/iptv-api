@@ -290,7 +290,6 @@ class YoutubSpider(BaseSpider):
                 published_str = snippet["publishedAt"]
                 published_time = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
                 video_play_url = f"{self._service.url_parse}".replace("{sp}", self._sp).replace("{vid}", video_id)
-                # video_play_url = f"{self._get_base_url()}/embed/{video_id}?autoplay=1"
                 videos.append({
                     "vod_key": video_id,
                     "vod_name": snippet["title"],

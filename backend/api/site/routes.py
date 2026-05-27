@@ -1,8 +1,9 @@
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Query, BackgroundTasks, Path
 from starlette import status
-from starlette.responses import RedirectResponse
+from starlette.responses import RedirectResponse, StreamingResponse
 
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateVodRequest
@@ -72,7 +73,7 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
         handle_exception(f"update vod video request failed.")
 
 
-@router.get("/{sp}/{vid}", summary="解析单个频道播放地址")
+@router.get("/{sp}/{vid}", summary="解析视频播放地址")
 async def parse_channel_url(
         sp: str = Path(..., description="视频源，如 v-youtub"),
         vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
@@ -109,6 +110,52 @@ async def parse_channel_url(
                         url=player_url, status_code=302,
                         headers=json_data["header"]
                     )
+    except Exception as e:
+        logger.error(f"parse {vid} video failed.", exc_info=False)
+    return ApiResponse(code=101, message=resp_message, data=resp_data)
+
+
+@router.get("/proxy/{sp}/{vid}", summary="代理视频播放地址")
+async def parse_channel_url(
+        sp: str = Path(..., description="视频源，如 v-youtub"),
+        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
+):
+    logger.debug(f"parse: sp={sp}, vid={vid}")
+
+    resp_data = {"sp": sp, "id": vid, "type": type}
+    resp_message = "失败代理播放地址"
+
+    spider = SpiderFactory.get_spider(sp)
+    if not spider or not spider.config:
+        logger.error(f"vod: sp={sp}对应的站点配置不存在")
+        return ApiResponse(code=400, message=resp_message, data=resp_data)
+
+    try:
+        redis_key = spider.make_redis_key("player", vid)
+        real_player = spider.redis_get(redis_key)
+        if not real_player:
+            player_url = await spider.get_player(vid)
+            if player_url:
+                real_player = {"url": player_url}
+                spider.redis_set(redis_key, real_player, ex=-1)
+
+        if real_player:
+            json_data = spider.get_player_json(1, vid, real_player["url"])
+            player_url = json_data.pop("url")
+            async with httpx.AsyncClient(timeout=20) as client:
+                resp = await client.send(client.build_request("GET",
+                                                              player_url,
+                                                              headers=json_data["header"]),
+                                         stream=True)
+                return StreamingResponse(
+                    resp.aiter_bytes(),
+                    status_code=resp.status_code,
+                    headers={
+                        "Content-Type": resp.headers.get("content-type", "video/mp4"),
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": resp.headers.get("content-length", ""),
+                    }
+                )
     except Exception as e:
         logger.error(f"parse {vid} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
