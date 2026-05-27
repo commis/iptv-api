@@ -73,15 +73,14 @@ async def api_collect(request: UpdateVodRequest, background_tasks: BackgroundTas
         handle_exception(f"update vod video request failed.")
 
 
-@router.get("/{sp}/{vid}", summary="解析视频播放地址")
+@router.get("/{sp}/{id}", summary="解析视频播放地址")
 async def parse_channel_url(
         sp: str = Path(..., description="视频源，如 v-youtub"),
-        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
-        type: Optional[str] = Query(None, description="返回的数据类型，例如：json")
+        id: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM"),
+        tp: Optional[str] = Query(None, description="返回的数据类型，例如：json")
 ):
-    logger.debug(f"parse: sp={sp}, vid={vid}")
-
-    resp_data = {"sp": sp, "id": vid, "type": type}
+    logger.debug(f"parse: sp={sp}, id={id}")
+    resp_data = {"op": "parse", "sp": sp, "id": id, "type": tp}
     resp_message = "失败解析播放地址"
 
     spider = SpiderFactory.get_spider(sp)
@@ -90,39 +89,38 @@ async def parse_channel_url(
         return ApiResponse(code=400, message=resp_message, data=resp_data)
 
     try:
-        redis_key = spider.make_redis_key("player", vid)
+        redis_key = spider.make_redis_key("player", id)
         real_player = spider.redis_get(redis_key)
         if not real_player:
-            player_url = await spider.get_player(vid)
+            player_url = await spider.get_player(id)
             if player_url:
                 real_player = {"url": player_url}
                 spider.redis_set(redis_key, real_player, ex=-1)
 
         if real_player:
-            json_data = spider.get_player_json(1, vid, real_player["url"])
+            json_data = spider.get_player_json(1, id, real_player["url"])
             player_url = json_data.pop("url")
-            match type:
+            match tp:
                 case "json":
                     return ApiResponse(url=player_url, data=json_data)
                 case _:
-                    logger.debug(f"parse {vid} play url: {player_url}")
+                    logger.debug(f"parse {id} play url: {player_url}")
                     return RedirectResponse(
                         url=player_url, status_code=302,
                         headers=json_data["header"]
                     )
     except Exception as e:
-        logger.error(f"parse {vid} video failed.", exc_info=False)
+        logger.error(f"parse {id} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
 
 
-@router.get("/proxy/{sp}/{vid}", summary="代理视频播放地址")
-async def parse_channel_url(
+@router.get("/proxy/{sp}/{id}", summary="代理视频播放地址")
+async def proxy_channel_url(
         sp: str = Path(..., description="视频源，如 v-youtub"),
-        vid: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
+        id: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
 ):
-    logger.debug(f"parse: sp={sp}, vid={vid}")
-
-    resp_data = {"sp": sp, "id": vid, "type": type}
+    logger.debug(f"proxy: sp={sp}, vid={id}")
+    resp_data = {"op": "proxy", "sp": sp, "id": id, "type": type}
     resp_message = "失败代理播放地址"
 
     spider = SpiderFactory.get_spider(sp)
@@ -131,16 +129,16 @@ async def parse_channel_url(
         return ApiResponse(code=400, message=resp_message, data=resp_data)
 
     try:
-        redis_key = spider.make_redis_key("player", vid)
+        redis_key = spider.make_redis_key("player", id)
         real_player = spider.redis_get(redis_key)
         if not real_player:
-            player_url = await spider.get_player(vid)
+            player_url = await spider.get_player(id)
             if player_url:
                 real_player = {"url": player_url}
                 spider.redis_set(redis_key, real_player, ex=-1)
 
         if real_player:
-            json_data = spider.get_player_json(1, vid, real_player["url"])
+            json_data = spider.get_player_json(1, id, real_player["url"])
             player_url = json_data.pop("url")
             async with httpx.AsyncClient(timeout=20) as client:
                 resp = await client.send(client.build_request("GET",
@@ -157,5 +155,5 @@ async def parse_channel_url(
                     }
                 )
     except Exception as e:
-        logger.error(f"parse {vid} video failed.", exc_info=False)
+        logger.error(f"proxy {id} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)

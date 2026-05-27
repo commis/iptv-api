@@ -180,7 +180,7 @@ class YoutubSpider(BaseSpider):
         return self.paginate_list(data, pg)
 
     @override
-    async def get_player(self, vid: str) -> Optional[str]:
+    async def get_player(self, id: str) -> Optional[str]:
         """解析 YouTube 视频，返回 360~720p 的可播放直链"""
         proxy = self._service.vpn_proxy
         cookie_path = self._service.cookie_file
@@ -189,7 +189,7 @@ class YoutubSpider(BaseSpider):
                 logger.error(f"[YouTube] cookie 文件不存在: {cookie_path}")
                 return None
 
-            url = f"https://www.youtube.com/watch?v={vid}"
+            url = f"https://www.youtube.com/watch?v={id}"
             loop = asyncio.get_event_loop()
 
             stream_url = await loop.run_in_executor(
@@ -197,24 +197,24 @@ class YoutubSpider(BaseSpider):
             )
             if stream_url:
                 return stream_url
-            logger.warning(f"[YouTube] 未获取到可用流: {vid}")
+            logger.warning(f"[YouTube] 未获取到可用流: {id}")
 
         except Exception as e:
             err = str(e)
             if "Sign in" in err or "bot" in err:
                 logger.error(f"[YouTube] Cookie 已过期: {cookie_path}")
             elif "Private video" in err:
-                logger.error(f"[YouTube] 私有视频: {vid}")
+                logger.error(f"[YouTube] 私有视频: {id}")
             elif "Video unavailable" in err:
-                logger.error(f"[YouTube] 视频不可用: {vid}")
+                logger.error(f"[YouTube] 视频不可用: {id}")
             else:
-                logger.error(f"[YouTube] 解析错误 {vid}: {err}")
+                logger.error(f"[YouTube] 解析错误 {id}: {err}")
 
         return None
 
     @override
-    def get_player_json(self, parse, vid, url):
-        return {"vid": vid, "parse": parse, "url": url, "header": self._header}
+    def get_player_json(self, parse, id, url):
+        return {"id": id, "parse": parse, "url": url, "header": self._header}
 
     async def collect(self, task_info: Dict, is_full: bool = False) -> Dict:
         total = task_info["total"]
@@ -289,7 +289,7 @@ class YoutubSpider(BaseSpider):
                 author = snippet["channelTitle"]
                 published_str = snippet["publishedAt"]
                 published_time = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
-                video_play_url = f"{self._service.url_parse}".replace("{sp}", self._sp).replace("{vid}", video_id)
+                video_play_url = f"{self._service.url_parse}".replace("{sp}", self._sp).replace("{id}", video_id)
                 videos.append({
                     "vod_key": video_id,
                     "vod_name": snippet["title"],
