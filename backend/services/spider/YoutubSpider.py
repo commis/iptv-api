@@ -78,16 +78,16 @@ class YoutubSpider(BaseSpider):
             return None
 
         cmd = [
-            sys.executable, "-m", "yt_dlp", "-v",
-            "-j",
+            sys.executable,
+            "-m", "yt_dlp", "-v", "-j",
             "--cookies", cookie_path,
             "--remote-components", "ejs:npm",
             "--no-playlist",
             "--socket-timeout", "20",
+            url
         ]
-        if proxy:
-            cmd.extend(["--proxy", proxy])
-        cmd.append(url)
+        # if proxy:
+        #     cmd.extend(["--proxy", proxy])
         logger.debug(f"[YouTube] 执行命令: {' '.join(cmd)}")
         try:
             proc = subprocess.run(
