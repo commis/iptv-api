@@ -25,8 +25,6 @@ MAX_VIDEO_NUM = 8
 class YoutubSpider(BaseSpider):
     _header = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0",
-        "Referer": "https://www.youtube.com/",
-        "Origin": "https://www.youtube.com"
     }
     _deno_available = False
     _deno_bin_dir = None
@@ -108,7 +106,7 @@ class YoutubSpider(BaseSpider):
                 return None
 
             info = json.loads(proc.stdout)
-            return self._select_best_url(info, vid=url.split("=")[-1], min_h=360, max_h=720)
+            return self._select_best_url(info, id=url.split("=")[-1], min_h=360, max_h=720)
 
         except subprocess.TimeoutExpired:
             logger.warning("[YouTube] yt-dlp 执行超时（20秒）")
@@ -119,7 +117,7 @@ class YoutubSpider(BaseSpider):
 
         return None
 
-    def _select_best_url(self, info: dict, vid: str = "", min_h: int = 360, max_h: int = 720) -> Optional[str]:
+    def _select_best_url(self, info: dict, id: str = "", min_h: int = 360, max_h: int = 720) -> Optional[str]:
         """优化：增加 protocol 过滤，使用生成器减少内存"""
         formats = info.get("formats") or []
 
@@ -139,7 +137,7 @@ class YoutubSpider(BaseSpider):
         ]
         if progressive:
             best = max(progressive, key=lambda x: x["height"])
-            logger.info(f"[YouTube] 选择 progressive {best['height']}p: {vid}")
+            logger.info(f"[YouTube] 选择 progressive {best['height']}p: {id}")
             return best["url"]
 
         # 2. video only
@@ -149,7 +147,7 @@ class YoutubSpider(BaseSpider):
         ]
         if video_only:
             best = max(video_only, key=lambda x: x["height"])
-            logger.info(f"[YouTube] 选择 video only {best['height']}p: {vid}")
+            logger.info(f"[YouTube] 选择 video only {best['height']}p: {id}")
             return best["url"]
 
         # 3. 降级
