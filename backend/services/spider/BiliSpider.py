@@ -15,8 +15,6 @@ logger = LoggerFactory.get_logger(__name__)
 class BiliSpider(BaseSpider):
     _header = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0",
-        "Referer": "https://newxvideos.pages.dev/",
-        "Origin": "https://newxvideos.pages.dev"
     }
 
     def _process_cate_detail(self, item: Dict, site_url) -> Dict:
