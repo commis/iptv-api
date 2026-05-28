@@ -161,7 +161,7 @@ async def get_ts_url(
                     media_type="application/vnd.apple.mpegurl"
                 )
     except Exception as e:
-        logger.error(f"proxy {id} video failed.", exc_info=False)
+        logger.error(f"m3u8 {id} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
 
 
@@ -206,5 +206,5 @@ async def proxy_ts_url(
                 headers=resp_headers,
             )
     except Exception as e:
-        logger.error(f"proxy {id} video failed.", exc_info=False)
+        logger.error(f"proxy {id} video failed: {str(e)}", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
