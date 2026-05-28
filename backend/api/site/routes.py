@@ -2,6 +2,7 @@ from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Query, BackgroundTasks, Path
+from httpx import ReadError, RemoteProtocolError
 from starlette import status
 from starlette.responses import RedirectResponse, StreamingResponse
 
@@ -120,7 +121,7 @@ async def proxy_channel_url(
         id: str = Path(..., description="频道ID，例如：4fkoZ7z5ggM")
 ):
     logger.debug(f"proxy: sp={sp}, vid={id}")
-    resp_data = {"op": "proxy", "sp": sp, "id": id, "type": type}
+    resp_data = {"op": "proxy", "sp": sp, "id": id}
     resp_message = "失败代理播放地址"
 
     spider = SpiderFactory.get_spider(sp)
@@ -141,18 +142,29 @@ async def proxy_channel_url(
             json_data = spider.get_player_json(1, id, real_player["url"])
             player_url = json_data.pop("url")
             async with httpx.AsyncClient(timeout=20) as client:
-                resp = await client.send(client.build_request("GET",
-                                                              player_url,
-                                                              headers=json_data["header"]),
-                                         stream=True)
+                resp = await client.send(
+                    client.build_request("GET", player_url, headers=json_data["header"]),
+                    stream=True)
+                resp_headers = {
+                    "Content-Type": resp.headers.get("content-type", "video/mp4"),
+                    "Accept-Ranges": "bytes",
+                }
+                cl = resp.headers.get("content-length")
+                if cl and cl.isdigit():
+                    resp_headers["Content-Length"] = cl
+
+                async def safe_stream():
+                    try:
+                        async for chunk in resp.aiter_bytes():
+                            yield chunk
+                    except (ReadError, RemoteProtocolError) as e:
+                        # logger.warning(f"Stream interrupted for {id}: {e}")
+                        pass
+
                 return StreamingResponse(
-                    resp.aiter_bytes(),
+                    safe_stream(),
                     status_code=resp.status_code,
-                    headers={
-                        "Content-Type": resp.headers.get("content-type", "video/mp4"),
-                        "Accept-Ranges": "bytes",
-                        "Content-Length": resp.headers.get("content-length", ""),
-                    }
+                    headers=resp_headers,
                 )
     except Exception as e:
         logger.error(f"proxy {id} video failed.", exc_info=False)
