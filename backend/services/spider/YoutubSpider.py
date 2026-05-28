@@ -25,6 +25,8 @@ MAX_VIDEO_NUM = 8
 class YoutubSpider(BaseSpider):
     _header = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:151.0) Gecko/20100101 Firefox/151.0",
+        "Referer": "https://www.youtube.com/",
+        "Origin": "https://www.youtube.com"
     }
     _deno_available = False
     _deno_bin_dir = None
