@@ -86,8 +86,8 @@ class YoutubSpider(BaseSpider):
             "--socket-timeout", "20",
             url
         ]
-        # if proxy:
-        #     cmd.extend(["--proxy", proxy])
+        if proxy:
+            cmd.extend(["--proxy", proxy])
         logger.debug(f"[YouTube] 执行命令: {' '.join(cmd)}")
         try:
             proc = subprocess.run(
