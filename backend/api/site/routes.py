@@ -113,7 +113,7 @@ async def parse_channel_url(
                         headers=json_data["header"]
                     )
     except Exception as e:
-        logger.error(f"parse {id} video failed.", exc_info=False)
+        logger.error(f"player {sp}.{id} video failed: {str(e)}", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
 
 
@@ -161,7 +161,7 @@ async def get_ts_url(
                     media_type="application/vnd.apple.mpegurl"
                 )
     except Exception as e:
-        logger.error(f"m3u8 {id} video failed.", exc_info=False)
+        logger.error(f"m3u8 {sp}.{id} video failed.", exc_info=False)
     return ApiResponse(code=101, message=resp_message, data=resp_data)
 
 
@@ -187,23 +187,22 @@ async def proxy_ts_url(
         headers["Range"] = range_header
 
     try:
-        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-            resp = await client.get(player_url, headers=headers)
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True, headers=headers) as client:
+            resp = await client.get(player_url)
             resp.raise_for_status()
-
             resp_headers = {
                 "Content-Type": "video/mp2t",
                 "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
             }
-            if "content-length" in resp.headers:
-                resp_headers["Content-Length"] = resp.headers["content-length"]
-            if "content-range" in resp.headers:
-                resp_headers["Content-Range"] = resp.headers["content-range"]
+            for k in ["content-length", "content-range", "cache-control"]:
+                if k in resp.headers:
+                    resp_headers[k.capitalize()] = resp.headers[k]
 
             return StreamingResponse(
                 resp.aiter_bytes(),
                 status_code=resp.status_code,
-                headers=resp_headers,
+                headers=resp_headers
             )
     except Exception as e:
         logger.error(f"proxy {sp} video failed: {str(e)}", exc_info=False)
@@ -211,8 +210,4 @@ async def proxy_ts_url(
     async def generate_empty_bytes():
         yield b""
 
-    return StreamingResponse(
-        generate_empty_bytes(),
-        status_code=500,
-        media_type="video/mp2t"
-    )
+    return StreamingResponse(generate_empty_bytes(), status_code=500, media_type="video/mp2t")
