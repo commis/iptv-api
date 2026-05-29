@@ -185,7 +185,7 @@ async def proxy_ts_url(
     range_header = request.headers.get("range")
     if range_header:
         headers["Range"] = range_header
-
+    logger.debug(f"proxy {sp} request header: {headers}")
     try:
         async with httpx.AsyncClient(timeout=20, follow_redirects=True, headers=headers) as client:
             resp = await client.get(player_url)
@@ -198,7 +198,7 @@ async def proxy_ts_url(
             for k in ["content-length", "content-range", "cache-control"]:
                 if k in resp.headers:
                     resp_headers[k.capitalize()] = resp.headers[k]
-
+            logger.debug(f"proxy {sp} resp_header: {resp_headers}")
             return StreamingResponse(
                 resp.aiter_bytes(),
                 status_code=resp.status_code,
