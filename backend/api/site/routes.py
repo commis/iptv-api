@@ -1,6 +1,6 @@
 import re
 from typing import Optional
-from urllib.parse import quote, urlencode, unquote
+from urllib.parse import quote, unquote
 
 import httpx
 import starlette
@@ -187,7 +187,7 @@ async def proxy_ts_url(
         headers["Range"] = range_header
 
     try:
-        async with (httpx.AsyncClient(timeout=20) as client):
+        async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
             resp = await client.get(player_url, headers=headers)
             resp.raise_for_status()
 
@@ -206,5 +206,13 @@ async def proxy_ts_url(
                 headers=resp_headers,
             )
     except Exception as e:
-        logger.error(f"proxy {id} video failed: {str(e)}", exc_info=False)
-    return ApiResponse(code=101, message=resp_message, data=resp_data)
+        logger.error(f"proxy {sp} video failed: {str(e)}", exc_info=False)
+
+    async def generate_empty_bytes():
+        yield b""
+
+    return StreamingResponse(
+        generate_empty_bytes(),
+        status_code=500,
+        media_type="video/mp2t"
+    )
