@@ -53,8 +53,12 @@ class SiteVideoConfig:
 
         class_config = config_data.get("class", {})
         for idx, (cat_name, data) in enumerate(class_config.items(), start=1):
-            typeid = data.get("typeid", None)
-            episodes = data.get("episodes", [])
+            if isinstance(data, str):
+                typeid = data
+                episodes = []
+            else:
+                typeid = data.get("typeid", None)
+                episodes = data.get("episodes", [])
             self._site_class.append({"type_id": typeid if typeid else str(idx), "type_name": cat_name})
             self._site_videos[cat_name] = episodes
             self._video_total += len(episodes)
