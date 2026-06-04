@@ -71,7 +71,7 @@ class YoutubSpider(BaseSpider):
         self._deno_available = False
         return False
 
-    def _sync_parse(self, url: str, cookie_path: str, proxy: Optional[str]) -> Optional[str]:
+    def _sync_parse(self, url: str, cookie_path: str) -> Optional[str]:
         """同步解析逻辑（优化版：保留 Deno 检查，超时降至 20s，日志精简）"""
         env = os.environ.copy()
         if not self._ensure_deno(env):
@@ -86,8 +86,6 @@ class YoutubSpider(BaseSpider):
             "--socket-timeout", "20",
             url
         ]
-        if proxy:
-            cmd.extend(["--proxy", proxy])
         logger.debug(f"[YouTube] 执行命令: {' '.join(cmd)}")
         try:
             proc = subprocess.run(
@@ -182,7 +180,6 @@ class YoutubSpider(BaseSpider):
     @override
     async def get_player(self, id: str) -> Optional[str]:
         """解析 YouTube 视频，返回 360~720p 的可播放直链"""
-        proxy = self._service.vpn_proxy
         cookie_path = self._service.cookie_file
         try:
             if not cookie_path or not os.path.exists(cookie_path):
@@ -193,7 +190,7 @@ class YoutubSpider(BaseSpider):
             loop = asyncio.get_event_loop()
 
             stream_url = await loop.run_in_executor(
-                None, self._sync_parse, url, cookie_path, proxy
+                None, self._sync_parse, url, cookie_path
             )
             if stream_url:
                 return stream_url
