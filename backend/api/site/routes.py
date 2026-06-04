@@ -3,11 +3,10 @@ from typing import Optional
 from urllib.parse import unquote, quote
 
 import httpx
-import starlette
 from fastapi import APIRouter, Query, BackgroundTasks, Path
 from starlette import status
 from starlette.requests import Request
-from starlette.responses import RedirectResponse, StreamingResponse
+from starlette.responses import RedirectResponse, StreamingResponse, Response
 
 from core.logger_factory import LoggerFactory
 from models.api_request import UpdateVodRequest
@@ -146,7 +145,8 @@ async def get_ts_url(
             json_data = spider.get_player_json(1, id, player_url)
             async with (httpx.AsyncClient(timeout=20) as client):
                 resp = await client.get(player_url, headers=json_data["header"])
-                resp.raise_for_status()
+                if not resp.is_success and not resp.is_redirect:
+                    resp.raise_for_status()
                 raw_m3u8 = resp.text
 
                 base_url = config_manager.service_params.url_parse.split('/m3u8')[0]
@@ -157,7 +157,7 @@ async def get_ts_url(
                     return proxy_url
 
                 modified_m3u8 = re.sub(r'https?://[^\s#]+?/seg\.ts[^\s#]*', replace_ts_url, raw_m3u8)
-                return starlette.responses.Response(
+                return Response(
                     content=modified_m3u8,
                     media_type="application/vnd.apple.mpegurl"
                 )
