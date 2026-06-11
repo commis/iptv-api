@@ -31,7 +31,8 @@ body {
 }
 
 .input-group {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
+    padding: 8px 0;
 }
 
 .row-group {
@@ -54,12 +55,15 @@ label {
 
 input {
     width: 100%;
-    padding: 9px 12px;
+    padding: 10px 12px;
+    margin: 6px 0;
     border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 14px;
     outline: none;
     transition: border-color 0.3s;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-variant-numeric: tabular-nums;
 }
 
 input:focus {
@@ -95,6 +99,7 @@ input:focus {
     flex-direction: column;
     align-items: stretch;
     justify-content: flex-start;
+    overflow-x: auto;
 }
 
 .result-label {
@@ -105,8 +110,9 @@ input:focus {
 
 .result-table {
     width: 100%;
+    max-width: 100%;
     border-collapse: collapse;
-    margin: 0;
+    margin: 0 auto;
 }
 
 .result-table th,
@@ -115,6 +121,8 @@ input:focus {
     padding: 8px 10px;
     text-align: center;
     font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 .result-table th {
