@@ -34,6 +34,17 @@ body {
     margin-bottom: 20px;
 }
 
+.row-group {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.row-group .input-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
 label {
     display: block;
     margin-bottom: 8px;
@@ -81,8 +92,45 @@ input:focus {
     color: #333;
     min-height: 60px;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.result-label {
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-align: left;
+}
+
+.result-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.result-table th,
+.result-table td {
+    border: 1px solid #d9e6f7;
+    padding: 10px 12px;
+    text-align: center;
+}
+
+.result-table th {
+    background-color: #e8f2ff;
+    color: #2c6bb2;
+    font-weight: 600;
+}
+
+.result-table td {
+    background-color: #ffffff;
+    color: #333;
+}
+
+.result-unit {
+    margin-bottom: 10px;
+    color: #606c80;
+    font-size: 14px;
 }
 
 .result-text {
