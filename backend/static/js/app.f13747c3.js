@@ -35,18 +35,14 @@ function calculatePrice() {
         return;
     }
 
-    // 按照真实股票交易规则计算手续费
-    // 佣金率：0.1%（万分之十），最低5元
+    // 按照真实股票交易规则计算交易手续费
+    // 买入手续费：0.1%（万分之十），最低5元
     const purchaseAmount = initPrice * buyAmount;
     const commissionRate = 0.001; // 0.1%
-    let commission = purchaseAmount * commissionRate;
-    if (commission < 5) {
-        commission = 5;
-    }
-
-    // 不亏损的实际价格 = (购买成本 + 佣金) / 买入量
-    // 实际上购买成本已经包含了佣金，所以是：实际价格 = (初始价 * 买入量 + 佣金) / 买入量
+    const commission = Math.max(purchaseAmount * commissionRate, 5);
     const totalCost = purchaseAmount + commission;
+
+    // 交易价应当基于总成本按每股分摊，确保包含手续费后不亏本
     const breakEvenPrice = totalCost / buyAmount;
 
     // 根据初始价格自动计算止盈、止损价格
