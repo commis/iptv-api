@@ -2,14 +2,14 @@
 function calculatePrice() {
     // 获取输入框元素
     const initPriceInput = document.getElementById('initPrice');
-    const feeInput = document.getElementById('fee');
+    const buyAmountInput = document.getElementById('buyAmount');
     const profitPercentInput = document.getElementById('profitPercent');
     const lossPercentInput = document.getElementById('lossPercent');
     const resultSpan = document.getElementById('result');
 
     // 获取并转换输入值为数字
     const initPrice = parseFloat(initPriceInput.value);
-    const fee = parseFloat(feeInput.value);
+    const buyAmount = parseInt(buyAmountInput.value);
     const profitPercent = parseFloat(profitPercentInput.value);
     const lossPercent = parseFloat(lossPercentInput.value);
 
@@ -19,8 +19,8 @@ function calculatePrice() {
         resultSpan.style.color = '#f56c6c';
         return;
     }
-    if (isNaN(fee) || fee < 0) {
-        resultSpan.textContent = '请输入有效的交易费用（大于等于0）';
+    if (isNaN(buyAmount) || buyAmount <= 0) {
+        resultSpan.textContent = '请输入有效的买入量（大于0）';
         resultSpan.style.color = '#f56c6c';
         return;
     }
@@ -35,8 +35,20 @@ function calculatePrice() {
         return;
     }
 
-    // 按交易费用计算后的价格（保留现有逻辑）
-    const feeResult = initPrice * (1 + (fee / initPrice) / 100);
+    // 按照真实股票交易规则计算手续费
+    // 佣金率：0.1%（万分之十），最低5元
+    const purchaseAmount = initPrice * buyAmount;
+    const commissionRate = 0.001; // 0.1%
+    let commission = purchaseAmount * commissionRate;
+    if (commission < 5) {
+        commission = 5;
+    }
+
+    // 不亏损的实际价格 = (购买成本 + 佣金) / 买入量
+    // 实际上购买成本已经包含了佣金，所以是：实际价格 = (初始价 * 买入量 + 佣金) / 买入量
+    const totalCost = purchaseAmount + commission;
+    const breakEvenPrice = totalCost / buyAmount;
+
     // 根据初始价格自动计算止盈、止损价格
     const profitPrice = initPrice * (1 + profitPercent / 100);
     const lossPrice = initPrice * (1 - lossPercent / 100);
@@ -48,7 +60,7 @@ function calculatePrice() {
         '<tbody>' +
         '<tr>' +
         '<td>' + initPrice.toFixed(2) + '</td>' +
-        '<td>' + feeResult.toFixed(2) + '</td>' +
+        '<td>' + breakEvenPrice.toFixed(2) + '</td>' +
         '<td>' + profitPrice.toFixed(2) + '</td>' +
         '<td>' + lossPrice.toFixed(2) + '</td>' +
         '</tr>' +
