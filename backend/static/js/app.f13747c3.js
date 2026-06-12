@@ -1,26 +1,3 @@
-function adjustValue(inputId, direction) {
-    const input = document.getElementById(inputId);
-    if (!input) return;
-
-    const step = parseFloat(input.step || 1) || 1;
-    const min = input.min ? parseFloat(input.min) : null;
-    const max = input.max ? parseFloat(input.max) : null;
-    const current = parseFloat(input.value);
-    const decimals = (step.toString().split('.')[1] || '').length;
-
-    let newValue = isNaN(current) ? (direction > 0 ? step : 0) : current + direction * step;
-    if (min !== null && !isNaN(min)) {
-        newValue = Math.max(newValue, min);
-    }
-    if (max !== null && !isNaN(max)) {
-        newValue = Math.min(newValue, max);
-    }
-    if (decimals > 0) {
-        newValue = newValue.toFixed(decimals);
-    }
-    input.value = newValue;
-}
-
 // 核心计算函数
 function calculatePrice() {
     // 获取输入框元素
