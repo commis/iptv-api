@@ -55,11 +55,12 @@ label {
 
 input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px 12px;
     margin: 6px 0;
     border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 14px;
+    min-height: 44px;
     outline: none;
     transition: border-color 0.3s;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
