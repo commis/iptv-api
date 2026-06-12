@@ -60,11 +60,21 @@ input {
     border: 1px solid #ddd;
     border-radius: 6px;
     font-size: 14px;
-    min-height: 44px;
+    min-height: 48px;
     outline: none;
     transition: border-color 0.3s;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-variant-numeric: tabular-nums;
+}
+
+input[type="number"] {
+    padding-right: 32px;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    display: block;
+    opacity: 1;
 }
 
 input:focus {
@@ -167,8 +177,13 @@ input:focus {
     }
 
     input {
-        padding: 10px 12px;
+        padding: 12px 12px;
         font-size: 14px;
+        min-height: 50px;
+    }
+
+    input[type="number"] {
+        padding-right: 32px;
     }
 
     .calc-btn {
