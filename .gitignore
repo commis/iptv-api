@@ -5,3 +5,5 @@ logs/
 **/__pycache__/
 **/*.pyc
 **/*.md5
+
+spider/dist/*.json
