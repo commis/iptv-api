@@ -92,9 +92,9 @@ class Parser:
 
         category_name = None
         for line in (
-            line.strip()
-            for line in text_data.splitlines()
-            if line.strip() and not line.startswith("#")
+                line.strip()
+                for line in text_data.splitlines()
+                if line.strip() and not line.startswith("#")
         ):
             if line.endswith("#genre#"):
                 category_name = None
@@ -104,8 +104,8 @@ class Parser:
 
                 define_category = config_manager.get_category(parse_category)
                 if (
-                    (use_ignore and config_manager.is_ignore(define_category))
-                    or not config_manager.exists(define_category)
+                        (use_ignore and config_manager.is_ignore(define_category))
+                        or not config_manager.exists(define_category)
                 ):
                     continue
 
@@ -159,8 +159,8 @@ class Parser:
 
                     define_category = config_manager.get_category(group_title)
                     if (
-                        (use_ignore and config_manager.is_ignore(define_category))
-                        or not config_manager.exists(define_category)
+                            (use_ignore and config_manager.is_ignore(define_category))
+                            or not config_manager.exists(define_category)
                     ):
                         continue
                     do_channel_logo = config_manager.do_channel_logo(define_category)
@@ -271,7 +271,7 @@ class Parser:
             return [MiguCateInfo(item.get("name", ""), item.get("vid", "")) for item in cached]
 
         migu_cate_url = self._MIGU_TV + "1ff892f2b5ab4a79be6e25b69d2f5d05"
-        response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT)
+        response = requests.get(migu_cate_url, timeout=Constants.REQUEST_TIMEOUT * 60)
         response.raise_for_status()
         json_cate_data = response.json()
 
@@ -369,7 +369,7 @@ class Parser:
 
         try:
             migu_url = self._MIGU_TV + pid
-            response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT)
+            response = requests.get(migu_url, timeout=Constants.REQUEST_TIMEOUT * 60)
             response.raise_for_status()
             json_cate_data = response.json()
 
