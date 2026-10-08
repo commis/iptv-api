@@ -107,7 +107,7 @@ class ServParams:
         return self._url_parse
 
     @property
-    def vpn_proxy(self) -> str:
+    def vpn_proxy(self) -> Any | None:
         return self._vpn_proxy
 
     @property
@@ -299,7 +299,7 @@ class ConfigManager:
 
         # 没有对应的分类时，构造储一个新的分类
         target_info = self._categories.get(category_name)
-        return target_info if target_info else self._categories.get("其他收藏")
+        return target_info if target_info else self._categories.get("其他")
 
     def update_category(self, category_infos: Dict[str, Dict[str, object]]) -> None:
         """
@@ -324,12 +324,12 @@ class ConfigManager:
         return self._category_map.get(category_name, category_name)
 
     def get_channel(self, channel_name: str) -> str:
-        pattern = re.compile(r"(频道|广播电视(总)?台)")
+        pattern = re.compile(r"(广播电视(总)?台)")
         clean_name = pattern.sub("", channel_name).strip()
         return self._channel_name_map.get(clean_name, clean_name)
 
     def get_channel_id(self, channel_id: str) -> str:
-        # channel_id = channel_id.replace("频道", "").replace("广播电视台", "")
+        # channel_id = channel_id.replace("广播电视台", "")
         return self._channel_id_map.get(channel_id, channel_id)
 
 
