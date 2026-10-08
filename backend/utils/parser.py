@@ -259,7 +259,6 @@ class Parser:
                 process_channel_PE(counter, migu_sports)
                 f.write("</tv>\n")
             os.rename(epg_file_bak, epg_file)
-            channel_manager.sort()
         except Exception as e:
             logger.error(f"fetch migu data failed: {e}")
 

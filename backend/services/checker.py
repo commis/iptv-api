@@ -287,6 +287,7 @@ class ChannelChecker:
                 except Exception as e:
                     logger.error(f"Future unexpected error: {e}")
 
+        channel_manager.sort()
         final_success = success_counter.get_value()
         self._write_data_to_txt_file(output_file)
         self._write_data_to_m3u_file(output_file)
