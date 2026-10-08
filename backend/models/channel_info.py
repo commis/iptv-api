@@ -60,7 +60,7 @@ class ChannelInfo:
     频道信息，包括频道数据流地址和速度信息
     """
 
-    def __init__(self, id: str = "", name: str = None):
+    def __init__(self, id: str = "", name: str = ""):
         self.id = id
         self.name = name
         self.logo = None
@@ -176,7 +176,7 @@ class ChannelList:
         with self._lock:
             return [channel.id for channel in self._channels.values()]
 
-    def get_channel(self, channel_name) -> ChannelInfo:
+    def get_channel(self, channel_name) -> ChannelInfo | None:
         with self._lock:
             if channel_name in self._channels:
                 return self._channels.get(channel_name)
