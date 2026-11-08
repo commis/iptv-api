@@ -114,15 +114,6 @@ class ChannelBaseModel:
             channel_list = self._channelGroups[name]
             channel_list.add_channel(channel_name, channel_url, id, logo)
 
-    def add_channel_info(self, name, channel_info: ChannelInfo):
-        if not name:
-            name = channel_info.title
-        with self._lock:
-            if name not in self._channelGroups:
-                self._channelGroups[name] = ChannelList()
-            channel_list = self._channelGroups[name]
-            channel_list.add_channel_info(channel_info)
-
     def get_groups(self):
         with self._lock:
             return self._channelGroups.keys()
@@ -132,13 +123,6 @@ class ChannelBaseModel:
             if group_name in self._channelGroups:
                 return self._channelGroups[group_name]
         return ChannelList()
-
-    def channel_ids(self):
-        with self._lock:
-            result = []
-            for _, channel_list in self._channelGroups.items():
-                result.append(channel_list.get_channle_ids())
-            return sorted(result)
 
     def _get_extm3u_header(self) -> str:
         base_header = "#EXTM3U"

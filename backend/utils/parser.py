@@ -52,41 +52,6 @@ class Parser:
         self._TVG_URL = url
 
     @staticmethod
-    def get_channel_data(text_data: str) -> list:
-        """
-        将用户提供的频道数据文本解析为 [(类别, 子类型, URL), ...] 格式的元组列表
-        """
-        category_stack = None
-        channel_list = []
-
-        for line in text_data.splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-
-            if line.endswith("#genre#"):
-                category = Constants.CATEGORY_CLEAN_PATTERN.sub(" ", line[:-7]).strip()
-                category_stack = (
-                    config_manager.get_category(category) if category else None
-                )
-                continue
-
-            if category_stack:
-                parts = line.split(",", 1)
-                if len(parts) != 2:
-                    continue
-                channel_name, url = [p.strip() for p in parts]
-                if not url:
-                    continue
-
-                category_info = config_manager.get_category_object(channel_name, category_stack)
-                category_name = category_info.get("name")
-                if not config_manager.is_exclude(category_info, channel_name):
-                    channel_list.append((category_name, channel_name, url))
-
-        return channel_list
-
-    @staticmethod
     def load_channel_txt(text_data, filters: [str] = None, use_ignore: bool = True):
         from services import config_manager
 

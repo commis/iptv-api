@@ -51,9 +51,6 @@ class ChannelUrl:
     def set_resolution(self, resolution):
         self.resolution = resolution
 
-    def valid_resolution(self, resolution):
-        return self.resolution >= resolution
-
 
 class ChannelInfo:
     """
@@ -121,27 +118,6 @@ class ChannelInfo:
             for url in sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
         )
 
-    def get_all(self, title="") -> str:
-        if not title:
-            title = self.title
-        sorted_urls = sorted(self.urls, key=lambda x: (x.resolution, x.speed, -x.order), reverse=True)
-        separator = [
-            "",
-            "===============================================================",
-            "",
-        ]
-        tvg_id = f'tvg-id="{self.id}" ' if self.id != "" else ""
-        tvg_logo = f'tvg-logo="{self.logo}" ' if self.logo else ""
-        return (
-            "\n".join(f"{self.name},{url.url}" for url in sorted_urls)
-            + "\n"
-            + "\n".join(separator)
-            + "\n"
-            + "\n".join(
-                f'#EXTINF:-1 {tvg_id}tvg-name="{self.name}" {tvg_logo}group-title="{title}",{self.name}\n{url.url}"'
-                for url in sorted_urls)
-        )
-
 
 class ChannelList:
     """
@@ -164,17 +140,9 @@ class ChannelList:
             channel_info.set_logo(logo)
             channel_info.add_url(ChannelUrl(channel_url))
 
-    def add_channel_info(self, channel_info: ChannelInfo):
-        with self._lock:
-            self._channels[channel_info.name] = channel_info
-
     def get_channel_names(self):
         with self._lock:
             return self._channels.keys()
-
-    def get_channle_ids(self):
-        with self._lock:
-            return [channel.id for channel in self._channels.values()]
 
     def get_channel(self, channel_name) -> ChannelInfo | None:
         with self._lock:

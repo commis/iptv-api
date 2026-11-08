@@ -18,6 +18,7 @@ function run_migu() {
     -e PYTHONUNBUFFERED=0 \
     -v ${CODE_DIR}/backend:/app/backend \
     -v ${CODE_DIR}/spider:/app/spider \
+    -v /home/app/sing-box/node:/app/node \
     commi/tvbox:${TAG}
 }
 

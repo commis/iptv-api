@@ -301,20 +301,6 @@ class ConfigManager:
         target_info = self._categories.get(category_name)
         return target_info if target_info else self._categories.get("其他")
 
-    def update_category(self, category_infos: Dict[str, Dict[str, object]]) -> None:
-        """
-        更新分类图标映射
-        """
-        with self._lock:
-            self._categories.update(category_infos)
-
-    def remove_category(self, category_name: str) -> None:
-        """
-        移除指定分类的图标映射
-        """
-        with self._lock:
-            self._categories.pop(category_name, None)
-
     def list_categories(self) -> Dict[str, object]:
         """获取所有分类图标映射的副本"""
         with self._lock:
