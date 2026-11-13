@@ -1,9 +1,11 @@
 import logging
 import logging.handlers
 import os
+import re
 import sys
+import time
 from datetime import datetime
-from typing import Union
+from typing import Optional, Union
 
 
 class LoggerFactory:
@@ -18,22 +20,65 @@ class LoggerFactory:
     _root_logger = None
 
     @staticmethod
+    def _get_log_dir() -> str:
+        """解析日志目录的绝对路径（兼容 gunicorn 等以绝对路径启动的场景）"""
+        if os.path.isabs(LoggerFactory.LOG_DIR):
+            return LoggerFactory.LOG_DIR
+        return os.path.abspath(LoggerFactory.LOG_DIR)
+
+    @staticmethod
     def _create_log_dir() -> None:
         """创建日志目录"""
-        if not os.path.exists(LoggerFactory.LOG_DIR):
-            os.makedirs(LoggerFactory.LOG_DIR)
+        log_dir = LoggerFactory._get_log_dir()
+        if not os.path.exists(log_dir):
+            os.makedirs(log_dir)
+
+    @staticmethod
+    def _cleanup_expired_logs(expire_days: int) -> None:
+        """清理超过保留期的所有过期日志文件"""
+        log_dir = LoggerFactory._get_log_dir()
+        if not os.path.isdir(log_dir):
+            return
+
+        expire_ts = time.time() - expire_days * 86400
+        # 匹配 app_YYYYMMDD[.suffix].log 形式的日志文件
+        pattern = re.compile(r"^app_\d{8}(?:\..+)?$")
+
+        for filename in os.listdir(log_dir):
+            file_path = os.path.join(log_dir, filename)
+            if not os.path.isfile(file_path):
+                continue
+
+            # 仅清理本次应用产生的 app_*.log 相关文件
+            if not pattern.match(filename):
+                continue
+
+            try:
+                if os.path.getmtime(file_path) < expire_ts:
+                    os.remove(file_path)
+                    print(f"[logger] removed expired log file: {file_path}")
+            except OSError:
+                pass
 
     @staticmethod
     def _get_file_handler(
             level: int = logging.INFO,
-            backup_days: int = 30,
+            backup_days: Optional[int] = None,
             log_format: str = DEFAULT_FORMAT
     ) -> logging.Handler:
         """创建按日期分割的文件处理器"""
         LoggerFactory._create_log_dir()
 
+        if backup_days is None:
+            from services import config_manager
+            backup_days = config_manager.service_params.log_expire
+
+        LoggerFactory._cleanup_expired_logs(backup_days)
+
         file_handler = logging.handlers.TimedRotatingFileHandler(
-            filename=f"{LoggerFactory.LOG_DIR}/{LoggerFactory.LOG_FILE}",
+            filename=os.path.join(
+                LoggerFactory._get_log_dir(), LoggerFactory.LOG_FILE
+            ),
             when="D",
             interval=1,
             backupCount=backup_days,

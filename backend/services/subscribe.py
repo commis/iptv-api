@@ -1,6 +1,5 @@
 import os
 import re
-import tempfile
 from typing import Dict
 
 import requests
@@ -31,9 +30,12 @@ class SubscribeService:
         }
 
     def get_clash_subscribe(self, clash_key: str) -> str:
-        temp_file_path = ""
+        url = self._urls.get(clash_key)
+        if not url:
+            logger.error(f"unsupported subscribe key: {clash_key}")
+            return ""
+
         try:
-            url = clash_key if clash_key.startswith(('http:', 'https:')) else self._urls.get(clash_key)
             response = requests.get(url, timeout=Constants.REQUEST_TIMEOUT, verify=False)
             response.raise_for_status()
 
@@ -44,23 +46,15 @@ class SubscribeService:
                     proxy["name"] = self._format_name(proxy["name"])
 
             os.makedirs(self._tmp_url, exist_ok=True)
-            with tempfile.NamedTemporaryFile(
-                mode="w", encoding="utf-8", suffix=".yaml", dir=self._tmp_url, delete=False
-            ) as f:
-                temp_file_path = f.name
+            clash_file = os.path.join(self._tmp_url, f"clash_{clash_key}.yaml")
+            with open(clash_file, "w", encoding="utf-8") as f:
                 yaml.safe_dump({"proxies": proxies}, f, allow_unicode=True)
-            
-            proxies_url = f"{self._tmp_path}/{os.path.basename(f.name)}"
+
+            proxies_url = f"{self._tmp_path}/{os.path.basename(clash_file)}"
             return self._convert_to_clash(proxies_url)
         except Exception as e:
             logger.error(f"get clash subscribe failed: {e}")
             return ""
-        finally:
-            if temp_file_path and os.path.exists(temp_file_path):
-                try:
-                    os.remove(temp_file_path)
-                except Exception as e:
-                    logger.error(f"clean temp file failed: {e}")
 
     def _format_name(self, name: str) -> str:
         """格式化节点名称：

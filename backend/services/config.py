@@ -94,6 +94,7 @@ class ServParams:
 
     def __init__(self, config_data: Dict[str, Any]):
         self._log_level = config_data.get("log_level", "info")
+        self._log_expire = int(config_data.get("log_expire", 7))
         self._url_parse = config_data.get("url_parse", "")
         self._vpn_proxy = config_data.get("vpn_proxy", None)
         self._cookie_file = config_data.get("cookie_file", "")
@@ -101,6 +102,10 @@ class ServParams:
     @property
     def log_level(self) -> str:
         return self._log_level
+
+    @property
+    def log_expire(self) -> int:
+        return self._log_expire
 
     @property
     def url_parse(self) -> str:
