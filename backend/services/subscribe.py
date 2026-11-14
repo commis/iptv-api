@@ -22,6 +22,14 @@ class SubscribeService:
         self._tmp_path = "https://ak3721.top/clash/node"
         self._tmp_url = "/app/node"
 
+        self._MAINLAND_CHINA_PATTERN = re.compile(
+            r'(中国电信|中国移动|中国联通|北京|上海|天津|重庆'
+            r'|广州|深圳|武汉|成都|济南|青岛|郑州|石家庄|长沙|合肥|福州|厦门|西安|沈阳|大连|长春|哈尔滨'
+            r'|太原|南昌|南宁|昆明|贵阳|兰州|呼和浩特|银川|乌鲁木齐|拉萨|西宁|海口'
+            r'|穗|沪|京|渝)',
+            re.IGNORECASE,
+        )
+
         self._urls: Dict[str, str] = {
             # https://github.com/ssrsub/ssr
             "ssrsub": "https://raw.githubusercontent.com/ssrsub/ssr/master/clash.yaml",
@@ -41,9 +49,13 @@ class SubscribeService:
 
             yaml_data = yaml.safe_load(response.text)
             proxies = yaml_data.get("proxies", []) if isinstance(yaml_data, dict) else []
+            filtered_proxies = []
             for proxy in proxies:
-                if proxy.get("name"):
-                    proxy["name"] = self._format_name(proxy["name"])
+                proxy["name"] = self._format_name(proxy["name"])
+                if self._is_mainland_china(proxy["name"]):
+                    continue
+                filtered_proxies.append(proxy)
+            proxies = filtered_proxies
 
             os.makedirs(self._tmp_url, exist_ok=True)
             clash_file = os.path.join(self._tmp_url, f"clash_{clash_key}.yaml")
@@ -56,12 +68,17 @@ class SubscribeService:
             logger.error(f"get clash subscribe failed: {e}")
             return ""
 
+    def _is_mainland_china(self, name: str) -> bool:
+        """按 name 判断是否为中国大陆节点"""
+        return self._MAINLAND_CHINA_PATTERN.search(name) is not None
+
     def _format_name(self, name: str) -> str:
         """格式化节点名称：
-        去 emoji/"机场推荐:xxx"前缀；"-"分隔符前后去空格；结尾序号补零并保留一个空格
+        去 emoji/"机场推荐:xxx"/"中国-"前缀；"-"分隔符前后去空格；结尾序号补零并保留一个空格
         """
         name = re.sub(r'^[\U0001F1E6-\U0001F1FF]{2}\s*|机场推荐:\S*\s*', '', name)
         name = re.sub(r'\s*-\s*', '-', name)
+        # name = re.sub(r'^中国-', '', name)
         return re.sub(r'-(\d+)$', lambda m: ' ' + m.group(1).zfill(2), name)
 
     def _convert_to_clash(self, proxies_url: str) -> str:
