@@ -65,6 +65,7 @@ class DocsSpider(BaseSpider):
                     for video in data_list:
                         if video.get("vod_name") == video_name:
                             site.repair_pic_url("vod_pic", video)
+                            site.repair_vod_url("vod_play_url", video)
                             return video
             except Exception as e:
                 continue

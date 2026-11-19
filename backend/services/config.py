@@ -19,6 +19,7 @@ class CollectInfo:
         self._url: str = collect_data["url"]
         self._key: str = collect_data.get("key", "")
         self._pic: Dict[str, Any] = collect_data.get("pic", {})
+        self._vod: Dict[str, Any] = collect_data.get("vod", {})
 
     @property
     def url(self):
@@ -32,6 +33,11 @@ class CollectInfo:
         if self._pic:
             value = data[key]
             data[key] = value.replace(self._pic["from"], self._pic["to"])
+
+    def repair_vod_url(self, key: str, data: Dict[str, Any]):
+        if self._vod:
+            value = data[key]
+            data[key] = value.replace(self._vod["from"], self._vod["to"])
 
 
 class SiteVideoConfig:
