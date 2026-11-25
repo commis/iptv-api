@@ -17,7 +17,7 @@ class SubscribeService:
 
     def __init__(self):
         self._sub_url = "http://107.174.95.154:25500/sub"
-        self._config = "config/Mini_MultiMode.ini"
+        self._config = "config/Mini_MultiNode.ini"
         self._params = "clash.dns=1&insert=false&emoji=true&new_name=true&flag=meta"
         self._tmp_path = "https://ak3721.top/clash/node"
         self._tmp_url = "/app/node"
